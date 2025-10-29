@@ -11,9 +11,6 @@ if __name__ == "__main__":
             break
         print(f"Você rolou: {rolar_d6()}")
 
-# d20.py
-import random
-
 def rolar_d20():
     return random.randint(1, 20)
 
