@@ -280,8 +280,8 @@ class Jogo:
 
     def _preview_missao(self) -> None:
         print("\nPré-visualização da Missão")
-        print(f"- Dificuldade: {self.missao_config['dificuldade']}")
-        print(f"- Cenário:     {self.missao_config['cenario']}")
+        print(f"- Dificuldade: {self.missao_config['dificuldade'] or (não definida)}")
+        print(f"- Cenário:     {self.missao_config['cenario'] or (não definido)}")
         print("- Inimigos e recompensas: (em breve)")
 
     # ======================== Missão com combate ============================
