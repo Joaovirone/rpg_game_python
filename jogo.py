@@ -13,8 +13,8 @@ class Jogo:
             "arquetipo": None,   # ex.: "Guerreiro", "Mago" (placeholder textual)
         }
         self.missao_config = {
-            "dificuldade": "Fácil",  # Fácil | Média | Difícil
-            "cenario": "Trilha",     # rótulo ilustrativo
+            "dificuldade": None,  # Fácil | Média | Difícil
+            "cenario": None,     # rótulo ilustrativo
         }
         self._ultimo_save = None
         self._ultimo_load = None
