@@ -74,12 +74,12 @@ class Missao:
         self.inimigo = inimigo
 >>>>>>> 5a57af433b761848870b29a404392310ca007c28
 
-<<<<<<< HEAD
+
     def _mostrar_hud(self, inimigo: Inimigo) -> None:
         mana_atual = getattr(self.heroi._atrib, "mana", 0)
         print(f"HP {self.heroi.nome}: {self.heroi.barra_hp()}   |   Mana: {mana_atual}")
         print(f"HP {inimigo.nome}: {inimigo.barra_hp()}")
-=======
+
 
     def executar(self, p: Personagem) -> ResultadoMissao:
         """
@@ -100,7 +100,7 @@ class Missao:
         print(f"Mecânica de combate será implementada futuramente para {p.nome}.")
         print("Retornando ao menu...\n")
         return ResultadoMissao(venceu=False, detalhes="Execução placeholder; sem combate.")
->>>>>>> 5a57af433b761848870b29a404392310ca007c28
+
 
 <<<<<<< HEAD
         custo_basico = {"Guerreiro": 0, "Mago": 1, "Arqueiro": 0, "Curandeiro": 0}.get(
