@@ -9,6 +9,64 @@ class Personagem(Entidade):
     Implementa atributos geral e comportamento padrão no combate
     """
 
+
+
+
+
+    # ======================================================================
+    # Construtor dinâmico de personagem conforme arquétipo
+    # ======================================================================
+    class Guerreiro():
+        def __init__(self, nome: str, atrib: Atributos):
+            super().__init__(nome,atrib(vida=50, ataque=8, defesa=10, mana=5, vida_max=50))
+            self.ataque_magico = 0
+
+    class Mago():
+        def __init__(self, nome: str, atrib: Atributos):
+            super().__init__(nome,atrib(vida=30, ataque=1, defesa=4, mana=40, vida_max=30))
+            self.ataque_magico = 10
+
+    class Arqueiro():
+        def __init__(self, nome: str, atrib: Atributos):
+            super().__init__(nome,atrib(vida=35, ataque=5, defesa=4, mana=25, vida_max=35))
+            self.ataque_magico = 3
+
+    class Curandeiro():
+        def __init__(self, nome: str, atrib: Atributos):
+            super().__init__(nome,atrib(vida=20, ataque=0, defesa=3, mana=35, vida_max=20))
+            self.ataque_magico = 8
+       
+    
+    # ======================================================================
+    # Tabela de especiais por classe (nome, custo) + HUD
+    # ======================================================================
+    def _lista_especiais(self, heroi) -> list[tuple[int, str, int]]:
+        """Retorna [(id, nome, custo_mana), ...] conforme o arquétipo do herói."""
+        if isinstance(heroi, self.Guerreiro):
+            return [
+                (1, "Duro na Queda",        0),
+                (2, "Determinação Mortal",  2),
+                (3, "Golpe Estilhaçador",   0),
+            ]
+        if isinstance(heroi, self.Mago):
+            return [
+                (1, "Paradoxo",             3),
+                (2, "Eletrocussão",         2),
+                (3, "Explosão Florescente", 8),
+            ]
+        if isinstance(heroi, self.Arqueiro):
+            return [
+                (1, "Aljava da Ruína",      1),
+                (2, "Contaminar",           3),
+                (3, "Ás na Manga",          7),
+            ]
+        if isinstance(heroi, self.Curandeiro):
+            return [
+            (1, "Hemofagia",              4),
+            (2, "Transfusão Vital",      30),
+            (3, "Resplendor Cósmico",    15),
+        ]
+
     def __init__(self, nome: str, atrib: Atributos):
         super().__init__(nome, atrib)
         self.nivel = 1
@@ -67,6 +125,8 @@ class Personagem(Entidade):
 
         self._atrib.vida = self._atrib.vida_max #vida restaurada para o máximo
         self._atrib.mana = max(self._atrib.mana, 30) # mana restaurada garantindo 30 de mana (garante que nunca fique abaixo de 30
+    
+    
 
     def __str__(self):
         return f"{self.nome} (Nivel: {self.nivel}) - {self._atrib.vida}/{self._atrib.vida_max} HP, {self._atrib.mana} mana"

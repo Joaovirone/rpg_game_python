@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-from base import Atributos
-from inimigo import Inimigo
-from personagem import (
-    Guerreiro, Mago, Arqueiro, Curandeiro,
-    tick_efeitos_inicio_turno,
-)
-from dado import d6, d20
-from missao import MissaoHordas
+from models.base import Atributos, Entidade
+from models.inimigo import Inimigo
+from models.personagem import Personagem,Entidade
+from dado import rolar_d6, rolar_d20
+from models.missao import MissaoHordas, Missao
 
 class Jogo:
     """
@@ -17,18 +14,17 @@ class Jogo:
     """
 
     def __init__(self) -> None:
+        
         self.personagem = {
             "nome": None,
             "arquetipo": None,   # "Guerreiro", "Mago", "Arqueiro", "Curandeiro"
         }
         self.missao_config = {
-<<<<<<< HEAD
-            "dificuldade": "Fácil",  # Fácil | Média | Difícil
-            "cenario": "Trilha",
-=======
+            
             "dificuldade": None,  # Fácil | Média | Difícil
             "cenario": None,     # rótulo ilustrativo
->>>>>>> 5a57af433b761848870b29a404392310ca007c28
+            "missao": Missao,      # rótulo da missão
+
         }
         self._ultimo_save = None
         self._ultimo_load = None
@@ -36,73 +32,9 @@ class Jogo:
     # ======================================================================
     # Construção do herói a partir do arquétipo escolhido no menu
     # ======================================================================
-    def _construir_personagem(self):
-        arq = (self.personagem.get("arquetipo") or "Guerreiro").strip()
-        if arq == "Guerreiro":
-            cls, atrib, atk_mag = (
-                Guerreiro,
-                Atributos(vida=50, ataque=8, defesa=10, mana=5,  vida_max=50),
-                0,
-            )
-        elif arq == "Mago":
-            cls, atrib, atk_mag = (
-                Mago,
-                Atributos(vida=30, ataque=1, defesa=4,  mana=40, vida_max=30),
-                10,
-            )
-        elif arq == "Arqueiro":
-            cls, atrib, atk_mag = (
-                Arqueiro,
-                Atributos(vida=35, ataque=5, defesa=4,  mana=25, vida_max=35),
-                3,
-            )
-        elif arq == "Curandeiro":
-            cls, atrib, atk_mag = (
-                Curandeiro,
-                Atributos(vida=20, ataque=0, defesa=3,  mana=35, vida_max=20),
-                8,
-            )
-        else:
-            # Fallback (inclui "Personalizado")
-            cls, atrib, atk_mag = (
-                Guerreiro,
-                Atributos(vida=50, ataque=8, defesa=10, mana=5,  vida_max=50),
-                0,
-            )
-        heroi = cls(self.personagem.get("nome") or "Herói", atrib)
-        heroi.ataque_magico = atk_mag  # campo simples para referência futura
-        return heroi
 
+    
     # ======================================================================
-    # Tabela de especiais por classe (nome, custo) + HUD
-    # ======================================================================
-    def _lista_especiais(self, heroi) -> list[tuple[int, str, int]]:
-        """Retorna [(id, nome, custo_mana), ...] conforme o arquétipo do herói."""
-        if isinstance(heroi, Guerreiro):
-            return [
-                (1, "Duro na Queda",        0),
-                (2, "Determinação Mortal",  2),
-                (3, "Golpe Estilhaçador",   0),
-            ]
-        if isinstance(heroi, Mago):
-            return [
-                (1, "Paradoxo",             3),
-                (2, "Eletrocussão",         2),
-                (3, "Explosão Florescente", 8),
-            ]
-        if isinstance(heroi, Arqueiro):
-            return [
-                (1, "Aljava da Ruína",      1),
-                (2, "Contaminar",           3),
-                (3, "Ás na Manga",          7),
-            ]
-        # Curandeiro
-        return [
-            (1, "Hemofagia",              4),
-            (2, "Transfusão Vital",      30),
-            (3, "Resplendor Cósmico",    15),
-        ]
-
     def _mostrar_hud_turno(self, heroi, inimigo) -> None:
         """Imprime HUD com HP/Mana e os especiais com custo/disponibilidade e prévia."""
         mana_atual = getattr(heroi._atrib, "mana", 0)
@@ -123,7 +55,7 @@ class Jogo:
     # 1–5: péssima (erra) | 6–10: normal | 11–15: boa (+1) | 16–20: excelente (crítico)
     # ======================================================================
     def _ataque_normal_com_d20(self, heroi, inimigo) -> int:
-        r = d20()
+        r = rolar_d20()
         print(f"\n[d20] Você rolou: {r}")
 
         if 1 <= r <= 5:
@@ -184,7 +116,7 @@ class Jogo:
 
     def _escolher_arquetipo(self) -> None:
         print("\nArquétipos disponíveis:")
-        print("[1] Guerreiro")
+        print("[1] Guerreiro\n")
         print("[2] Mago")
         print("[3] Arqueiro")
         print("[4] Curandeiro")
@@ -202,8 +134,26 @@ class Jogo:
         if arq:
             self.personagem["arquetipo"] = arq
             print(f"Arquétipo definido: {arq}")
+
         else:
             print("Opção inválida. Arquétipo não alterado.")
+
+    #AQUI estou tentando fazer o personagem escolhido aparecer os atributos deles vida, manda e etc (não consegui ainda)
+
+    def mostrar_personagem(self, nome_arquetipo):
+        classe = self.arquetipos.get(nome_arquetipo)
+        if classe:
+            personagem = classe()
+            a = Personagem.Atributos
+            print(f"\nPreview de {personagem.nome}:")
+            print(f"🩸 Vida: {a.vida}/{a.vida_max}")
+            print(f"⚔️ Ataque: {a.ataque}")
+            print(f"🛡️ Defesa: {a.defesa}")
+            print(f"🔮 Mana: {a.mana}")
+            print(f"✨ Ataque Mágico: {personagem.ataque_magico}\n")
+        else:
+            print("Arquétipo não encontrado.")
+    
 
     def _confirmar_criacao(self) -> None:
         if not self.personagem["nome"]:
@@ -224,12 +174,14 @@ class Jogo:
     def menu_missao(self) -> None:
         while True:
             print("\n=== Missão ===")
-            print(f"Dificuldade atual: {self.missao_config['dificuldade']}")
-            print(f"Cenário atual:     {self.missao_config['cenario']}")
+            print(f"Dificuldade atual: {self.missao_config['dificuldade'] or '(não definida)'}")
+            print(f"Cenário atual:     {self.missao_config['cenario'] or '(não definido)'}")
+            print(f"Missão atual:      {self.missao_config['missao'] or '(não definida)'}")
             print("[1] Escolher dificuldade")
             print("[2] Escolher cenário")
             print("[3] Pré-visualizar missão")
             print("[4] Iniciar missão (com d20 e d6)")
+            print("[5] Escolher missão específica")
             print("[9] Ajuda")
             print("[0] Voltar")
             op = input("> ").strip()
@@ -242,12 +194,37 @@ class Jogo:
                 self._preview_missao()
             elif op == "4":
                 self._iniciar_missao_placeholder()
+            elif op == "5":
+                self.escolher_missao()
             elif op == "9":
                 self._ajuda_missao()
             elif op == "0":
                 break
             else:
                 print("Opção inválida.")
+
+
+    def escolher_missao(self) -> None:
+        print("Escolha de Missões:")
+        print("[1] Eliminar Ladrão")
+        print("[2] Eliminar Goblin")
+        print("[3] Eliminar Golem")
+        print("[4] ELiminar Elfo")
+        print("[5] Eliminar Dragão")
+        op = input("> ").strip()
+        mapa = {
+            "1": Missao.missao_1(self),
+            "2": Missao.missao_2(self),
+            "3": Missao.missao_3(self),
+            "4": Missao.missao_4(self),
+            "5": Missao.missao_5(self),
+        }
+
+        dif = mapa.get(op)
+        if dif:
+            self.missao_config["missao"] = dif
+            print(f"Missão definida: {dif}")
+
 
     def _escolher_dificuldade(self) -> None:
         print("\nDificuldades:")
@@ -280,8 +257,8 @@ class Jogo:
 
     def _preview_missao(self) -> None:
         print("\nPré-visualização da Missão")
-        print(f"- Dificuldade: {self.missao_config['dificuldade'] or (não definida)}")
-        print(f"- Cenário:     {self.missao_config['cenario'] or (não definido)}")
+        print(f"- Dificuldade: {self.missao_config['dificuldade'] or '(não definida)'}")
+        print(f"- Cenário:     {self.missao_config['cenario'] or '(não definido)'}")
         print("- Inimigos e recompensas: (em breve)")
 
     # ======================== Missão com combate ============================
@@ -291,7 +268,7 @@ class Jogo:
             return
 
         heroi = self._construir_personagem()
-        engine = MissaoHordas(
+        engine = Missao(
             heroi=heroi,
             cenario=self.missao_config['cenario'],
             dificuldade=self.missao_config['dificuldade']
@@ -303,7 +280,7 @@ class Jogo:
         print(f"Cenário: {self.missao_config['cenario']} | Dificuldade: {self.missao_config['dificuldade']}")
 
         heroi = self._construir_personagem()
-        inimigo = Inimigo("Goblin", vida=18, ataque=3, defesa=1)
+        inimigo = Inimigo.goblin()
 
         turno = 1
         while heroi.esta_vivo() and inimigo.esta_vivo():
@@ -374,13 +351,14 @@ class Jogo:
                 print(f"{inimigo.nome} está atordoado e não ataca.")
             else:
                 # Ataque simples do inimigo: d6 + ataque - defesa do herói
-                dano_in = max(0, d6() + inimigo._atrib.ataque - heroi._atrib.defesa)
+                dano_in = max(0, rolar_d6() + inimigo._atrib.ataque - heroi._atrib.defesa)
                 heroi.receber_dano(dano_in)
                 print(f"{inimigo.nome} ataca e causa {dano_in} de dano. Seu HP: {heroi.barra_hp()} (Mana: {getattr(heroi._atrib, 'mana', 0)})")
 
             turno += 1
 
         print("\nMissão finalizada (simulado). Retornando ao menu de Missão...")
+        
 
     def _ajuda_missao(self) -> None:
         print("\nAjuda — Missão")

@@ -1,8 +1,8 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from .personagem import Personagem, Curandeiro, tick_efeitos_inicio_turno
-from .inimigo import Inimigo, generate_horde
-from .dado import d6
+from .personagem import Personagem
+from .inimigo import Inimigo #generate_horde
+from dado import rolar_d20, rolar_d6
 
 
 @dataclass
@@ -12,7 +12,7 @@ class ResultadoMissao:
     detalhes: str = ""
 
 
-<<<<<<< HEAD
+
 class MissaoHordas:
     def __init__(self, heroi: Personagem, cenario: str, dificuldade: str):
         self.heroi = heroi
@@ -55,25 +55,35 @@ class MissaoHordas:
         if n >= 6: desbloq += 1
         if n >= 8: desbloq += 1
         return todos[:desbloq]
-=======
+
 class Missao:
     """
     Estrutura da missão sem a mecânica de combate.
     Mantém a assinatura para futura integração com o jogo completo.
     """
-    missao =
-    def __init__(self, titulo: str, inimigo: Inimigo):
-        self.missoes = [{
-            "titulo":missao_1,
-            "titulo":missao_2,
-            "titulo":missao_3,
-            "titulo":missao_4,
-            "titulo":missao_5,
-        }]
-        self.missao_atual = 0;
-        self.inimigo = inimigo
->>>>>>> 5a57af433b761848870b29a404392310ca007c28
 
+    
+    def __init__(self, inimigo: Inimigo, cenario: str, dificuldade: str, heroi: Personagem):
+        self.missoes = [
+            self.missao_1(),
+            self.missao_2(),
+            self.missao_3(),
+            self.missao_4(),
+            self.missao_5()
+        ]
+        self.missao_atual = 0
+        self.inimigo = inimigo
+
+    def missao_1(self)-> dict:
+        return "Matar Ladrões"
+    def missao_2(self)-> dict:
+        return "Matar Goblins"
+    def missao_3(self)-> dict:
+        return "Matar Golens"
+    def missao_4(self)-> dict:
+        return "Matar Elfos"
+    def missao_5(self)-> str:
+        return "Matar Dragões"
 
     def _mostrar_hud(self, inimigo: Inimigo) -> None:
         mana_atual = getattr(self.heroi._atrib, "mana", 0)
@@ -87,35 +97,36 @@ class Missao:
         - Exibe um resumo e retorna um resultado simulado.
         - Sem combate real neste estágio.
         """
-        missao = self.missoes_atual = [missao_atual]
+        missao = self.missoes_atual = [self.missao_atual]
         titulo = missao["titulo"]
 
         if self.missao_atual >= len(self.missao):
-        print("\nAs missões foram concluídas")
-        return
+            print("\nAs missões foram concluídas")
+                
         
-        print(f"\n=== Missão: {self.missao_atual + 1}:{titulo} ===")
-        print(f"Inimigo: {self.inimigo.nome} (HP: {self.inimigo._atrib.vida})")
-        print(f"Personagem: {self.Personagem.nome} está pronto para lutar!")
-        print(f"Mecânica de combate será implementada futuramente para {p.nome}.")
-        print("Retornando ao menu...\n")
-        return ResultadoMissao(venceu=False, detalhes="Execução placeholder; sem combate.")
+            print(f"\n=== Missão: {self.missao_atual + 1}:{titulo} ===")
+            print(f"Inimigo: {self.inimigo.nome} (HP: {self.inimigo._atrib.vida})")
+            print(f"Personagem: {self.Personagem.nome} está pronto para lutar!")
+            print(f"Mecânica de combate será implementada futuramente para {p.nome}.")
+            print("Retornando ao menu...\n")
+            return ResultadoMissao(venceu=False, detalhes="Execução placeholder; sem combate.")
 
-
-<<<<<<< HEAD
-        custo_basico = {"Guerreiro": 0, "Mago": 1, "Arqueiro": 0, "Curandeiro": 0}.get(
+        
+        def mana_classe(self) -> None:
+            custo_basico = {"Guerreiro": 0, "Mago": 1, "Arqueiro": 0, "Curandeiro": 0}.get(
             self.heroi.__class__.__name__, 0
-        )
-        print(f"[1] Ataque básico — custo {custo_basico} "
-              f"({'ficará: ' + str(mana_atual - custo_basico) if mana_atual >= custo_basico else 'insuf.'})")
+        )      
+            mana_atual = getattr(self.heroi._atrib, "mana", 0)
+            print(f"[1] Ataque básico — custo {custo_basico} "
+                f"({'ficará: ' + str(mana_atual - custo_basico) if mana_atual >= custo_basico else 'insuf.'})")
 
-        for i, (_, nome, custo) in enumerate(self._lista_especiais(), start=2):
-            if mana_atual >= custo:
-                print(f"[{i}] {nome} — custo {custo} (ficará: {mana_atual - custo})")
-            else:
-                print(f"[{i}] {nome} — custo {custo} (insuficiente)")
-        print("[0] Fugir")
-
+            for i, (_, nome, custo) in enumerate(self._lista_especiais(), start=2):
+                if mana_atual >= custo:
+                        print(f"[{i}] {nome} — custo {custo} (ficará: {mana_atual - custo})")
+                else:
+                    print(f"[{i}] {nome} — custo {custo} (insuficiente)")
+                    print("[0] Fugir")
+            
     def executar(self) -> ResultadoMissao:
         print("\nIniciando missão...")
         print(f"Cenário: {self.cenario} | Dificuldade: {self.dificuldade}")
@@ -214,7 +225,7 @@ class Missao:
                     print(f"{inimigo.nome} está atordoado e não ataca.")
                 else:
                     # NÃO subtrair defesa aqui; Entidade.receber_dano aplica defesa.
-                    dano_in = max(0, d6() + inimigo._atrib.ataque)
+                    dano_in = max(0, rolar_d6() + inimigo._atrib.ataque)
 
                     # Invulnerável anula dano direto (checado na missão)
                     if self.heroi.efeitos.get("invulneravel_turnos", 0) > 0:
@@ -238,19 +249,9 @@ class Missao:
         print("\nParabéns! Você venceu todas as hordas da missão!")
         return ResultadoMissao(True, encontros_vencidos, "Vitória!")
 
-=======
-    def missao_1(self, titulo:str)
-        self.titulo = "Matar Ladrões"
-    def missao_2(self, titulo:str)
-        self.titulo = "Matar Goblins"
-    def missao_3(self, titulo:str)
-        self.titulo = "Matar Golens"
-    def missao_4(self, titulo:str)
-        self.titulo = "Matar Elfos"
-    def missao_5(self, titulo:str)
-        self.titulo = "Matar Dragões"
 
 
 
 
->>>>>>> 5a57af433b761848870b29a404392310ca007c28
+
+
