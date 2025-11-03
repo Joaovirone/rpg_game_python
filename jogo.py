@@ -1,7 +1,7 @@
 from __future__ import annotations
 import json
 import os
-import utils.logger as logger
+from utils.logger import logger
 from models.base import Atributos, Entidade
 from models.inimigo import Inimigo
 from models.personagem import Personagem, Entidade, Curandeiro, Arqueiro, Mago, Guerreiro
@@ -17,8 +17,10 @@ class Jogo:
 
     def __init__(self) -> None:
 
-        logger.Logger.self = logger.Logger()
-        logger.Logger.self.info("Iniciando o jogo...")
+        # Criação do logger
+        self.logger = logger
+        self.logger.info("Iniciando jogo...")
+
         
         self.personagem = {
             "nome": None,
@@ -42,7 +44,7 @@ class Jogo:
         self._ultimo_save = None
         self._ultimo_load = None
 
-        #Caminha que é feito para os saves irem pra pasta saver
+        #Caminho que é feito para os saves irem pra pasta saver
         self.save_dir = os.path.join(os.getcwd(), "saves")
         os.makedirs(self.save_dir, exist_ok=True) # garante que o diretório exista
 
@@ -195,6 +197,11 @@ class Jogo:
         if not self.personagem["arquetipo"]:
             print("Escolha um arquétipo antes de confirmar a criação.")
             return
+
+        nome_arquetipo = self.personagem["arquetipo"]
+        nome_heroi = self.personagem["nome"]
+        self.heroi = self.mostrar_personagem(nome_arquetipo, nome_heroi)
+
         print("\nPersonagem criado com sucesso!")
         print(f"Nome: {self.personagem['nome']} | Arquétipo: {self.personagem['arquetipo']}")
         print("(Obs.: atributos base são definidos automaticamente na missão.)")
@@ -301,7 +308,7 @@ class Jogo:
     # ======================== Missão com combate ============================
     def _iniciar_missao_placeholder(self, inimigo=None) -> None:
         self.logger.info("Iniciando a missão.")
-        if not self.personagem["nome"]:
+        if not self.personagem["nome"] or not self.personagem["arquetipo"]:
             print("Crie um personagem antes de iniciar uma missão.")
             return
 
@@ -309,7 +316,11 @@ class Jogo:
         if inimigo is None:
             inimigo = Inimigo.goblin()
 
-        heroi = self.mostrar_personagem
+        # Pega os dados do personagem criado no menu
+        nome_arquetipo = self.personagem["arquetipo"]
+        nome_heroi = self.personagem["nome"]
+
+        heroi = self.mostrar_personagem(nome_arquetipo, nome_heroi)
         engine = Missao(
             inimigo= inimigo,
             heroi=heroi,

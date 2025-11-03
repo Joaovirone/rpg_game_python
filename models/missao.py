@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from .personagem import Personagem
 from .inimigo import Inimigo #generate_horde
 from dado import rolar_d20, rolar_d6
+from .horda import generate_horde
 
 
 @dataclass
@@ -64,6 +65,11 @@ class Missao:
 
     
     def __init__(self, inimigo: Inimigo, cenario: str, dificuldade: str, heroi: Personagem):
+        self.inimigo = inimigo
+        self.cenario = cenario
+        self.dificuldade = dificuldade
+        self.heroi = heroi
+
         self.missoes = [
             self.missao_1(),
             self.missao_2(),
@@ -72,7 +78,7 @@ class Missao:
             self.missao_5()
         ]
         self.missao_atual = 0
-        self.inimigo = inimigo
+
 
     def missao_1(self)-> dict:
         return "Matar Ladrões"
@@ -90,43 +96,22 @@ class Missao:
         print(f"HP {self.heroi.nome}: {self.heroi.barra_hp()}   |   Mana: {mana_atual}")
         print(f"HP {inimigo.nome}: {inimigo.barra_hp()}")
 
-
-    def executar(self, p: Personagem) -> ResultadoMissao:
-        """
-        Placeholder de execução da missão:
-        - Exibe um resumo e retorna um resultado simulado.
-        - Sem combate real neste estágio.
-        """
-        missao = self.missoes_atual = [self.missao_atual]
-        titulo = missao["titulo"]
-
-        if self.missao_atual >= len(self.missao):
-            print("\nAs missões foram concluídas")
-                
-        
-            print(f"\n=== Missão: {self.missao_atual + 1}:{titulo} ===")
-            print(f"Inimigo: {self.inimigo.nome} (HP: {self.inimigo._atrib.vida})")
-            print(f"Personagem: {self.Personagem.nome} está pronto para lutar!")
-            print(f"Mecânica de combate será implementada futuramente para {p.nome}.")
-            print("Retornando ao menu...\n")
-            return ResultadoMissao(venceu=False, detalhes="Execução placeholder; sem combate.")
-
-        
-        def mana_classe(self) -> None:
-            custo_basico = {"Guerreiro": 0, "Mago": 1, "Arqueiro": 0, "Curandeiro": 0}.get(
+    def mana_classe(self) -> None:
+        custo_basico = {"Guerreiro": 0, "Mago": 1, "Arqueiro": 0, "Curandeiro": 0}.get(
             self.heroi.__class__.__name__, 0
-        )      
-            mana_atual = getattr(self.heroi._atrib, "mana", 0)
-            print(f"[1] Ataque básico — custo {custo_basico} "
-                f"({'ficará: ' + str(mana_atual - custo_basico) if mana_atual >= custo_basico else 'insuf.'})")
+        )
+        mana_atual = getattr(self.heroi._atrib, "mana", 0)
+        print(f"[1] Ataque básico — custo {custo_basico} "
+              f"({'ficará: ' + str(mana_atual - custo_basico) if mana_atual >= custo_basico else 'insuf.'})")
 
-            for i, (_, nome, custo) in enumerate(self._lista_especiais(), start=2):
-                if mana_atual >= custo:
-                        print(f"[{i}] {nome} — custo {custo} (ficará: {mana_atual - custo})")
-                else:
-                    print(f"[{i}] {nome} — custo {custo} (insuficiente)")
-                    print("[0] Fugir")
-            
+        for i, (_, nome, custo) in enumerate(self._lista_especiais(), start=2):
+            if mana_atual >= custo:
+                print(f"[{i}] {nome} — custo {custo} (ficará: {mana_atual - custo})")
+            else:
+                print(f"[{i}] {nome} — custo {custo} (insuficiente)")
+                print("[0] Fugir")
+
+
     def executar(self) -> ResultadoMissao:
         print("\nIniciando missão...")
         print(f"Cenário: {self.cenario} | Dificuldade: {self.dificuldade}")
@@ -187,15 +172,15 @@ class Missao:
 
                         if isinstance(self.heroi, Curandeiro):
                             if _id == 1:
-                                self.heroi.usar_especial(1, aliados=[])
+                                self.heroi.habilidade_especial(_id, aliados=[])
                             elif _id == 2:
-                                self.heroi.usar_especial(2, aliado=None)
+                                self.heroi.habilidade_especial(_id, aliado=None)
                             elif _id == 3:
-                                self.heroi.usar_especial(3)
+                                self.heroi.habilidade_especial(_id)
                             elif _id == 4:
-                                dano_causado = self.heroi.usar_especial(4, alvo=inimigo)
+                                dano_causado = self.heroi.habilidade_especial(4, alvo=inimigo)
                         else:
-                            dano_causado = self.heroi.usar_especial(_id, alvo=inimigo)
+                            dano_causado = self.heroi.habilidade_especial(_id, alvo=inimigo)
 
                     elif acao == "0":
                         print("Você recuou da missão!")

@@ -11,6 +11,9 @@ class Inimigo(Entidade):
     def __init__(self, nome: str, vida: int, ataque: int, defesa: int):
         super().__init__(nome, Atributos(vida=vida, ataque=ataque, defesa=defesa, vida_max=vida))
 
+    def esta_vivo(self) -> bool:
+        return self._atrib.vida > 0
+
     def ladrao()-> Inimigo:
         return Inimigo(nome="Ladrão", vida=15, ataque=10, defesa=10)
     
