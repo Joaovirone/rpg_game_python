@@ -11,6 +11,7 @@ def menu() -> None:
         print("[2] Encarar missão")
         print("[3] Salvar")
         print("[4] Carregar")
+        print("[5] Personagem Atual")
         print("[0] Sair")
         op = input("> ").strip()
 
@@ -22,6 +23,8 @@ def menu() -> None:
             jogo.menu_salvar()
         elif op == "4":
             jogo.menu_carregar()
+        elif op == "5":
+            jogo.mostrar_personagem()
         elif op == "0":
             print("Até logo!")
             break
