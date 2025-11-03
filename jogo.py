@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from models.base import Atributos, Entidade
 from models.inimigo import Inimigo
-from models.personagem import Personagem,Entidade
+from models.personagem import Personagem, Entidade, Curandeiro, Arqueiro, Mago, Guerreiro
 from dado import rolar_d6, rolar_d20
 from models.missao import MissaoHordas, Missao
 
@@ -19,11 +19,19 @@ class Jogo:
             "nome": None,
             "arquetipo": None,   # "Guerreiro", "Mago", "Arqueiro", "Curandeiro"
         }
+
+        self.arquetipos = {
+            "Guerreiro": Guerreiro,
+            "Mago": Mago,
+            "Arqueiro": Arqueiro,
+            "Curandeiro": Curandeiro
+        }
+
         self.missao_config = {
             
             "dificuldade": None,  # Fácil | Média | Difícil
             "cenario": None,     # rótulo ilustrativo
-            "missao": Missao,      # rótulo da missão
+            "missao": None,      # rótulo da missão
 
         }
         self._ultimo_save = None
@@ -115,6 +123,7 @@ class Jogo:
             print("Nome não alterado.")
 
     def _escolher_arquetipo(self) -> None:
+
         print("\nArquétipos disponíveis:")
         print("[1] Guerreiro\n")
         print("[2] Mago")
@@ -134,26 +143,40 @@ class Jogo:
         if arq:
             self.personagem["arquetipo"] = arq
             print(f"Arquétipo definido: {arq}")
+            return arq
+
 
         else:
             print("Opção inválida. Arquétipo não alterado.")
+            return None
+
+
 
     #AQUI estou tentando fazer o personagem escolhido aparecer os atributos deles vida, manda e etc (não consegui ainda)
 
-    def mostrar_personagem(self, nome_arquetipo):
-        classe = self.arquetipos.get(nome_arquetipo)
-        if classe:
-            personagem = classe()
-            a = Personagem.Atributos
-            print(f"\nPreview de {personagem.nome}:")
-            print(f"🩸 Vida: {a.vida}/{a.vida_max}")
-            print(f"⚔️ Ataque: {a.ataque}")
-            print(f"🛡️ Defesa: {a.defesa}")
-            print(f"🔮 Mana: {a.mana}")
-            print(f"✨ Ataque Mágico: {personagem.ataque_magico}\n")
-        else:
+    def mostrar_personagem(self, nome_arquetipo: str, nome_heroi: str):
+        """
+        Cria e retorna um personagem do arquétipo escolhido, exibindo preview das estatísticas.
+        """
+        # Pega a classe do arquétipo
+        classe_arquetipo = self.arquetipos.get(nome_arquetipo)
+        if not classe_arquetipo:
             print("Arquétipo não encontrado.")
-    
+            return None
+
+        # Cria o personagem (atributos já são definidos no construtor do arquétipo)
+        personagem = classe_arquetipo(nome_heroi)
+
+        # Mostra estatísticas
+        a = personagem._atrib
+        print(f"\nPreview de {personagem.nome}:")
+        print(f"🩸 Vida: {a.vida}/{a.vida_max}")
+        print(f"⚔️ Ataque: {a.ataque}")
+        print(f"🛡️ Defesa: {a.defesa}")
+        print(f"🔮 Mana: {getattr(a, 'mana', 0)}")
+        print(f"✨ Ataque Mágico: {personagem.ataque_magico}\n")
+
+        return personagem
 
     def _confirmar_criacao(self) -> None:
         if not self.personagem["nome"]:
@@ -177,6 +200,9 @@ class Jogo:
             print(f"Dificuldade atual: {self.missao_config['dificuldade'] or '(não definida)'}")
             print(f"Cenário atual:     {self.missao_config['cenario'] or '(não definido)'}")
             print(f"Missão atual:      {self.missao_config['missao'] or '(não definida)'}")
+
+            print() # Pular linha
+
             print("[1] Escolher dificuldade")
             print("[2] Escolher cenário")
             print("[3] Pré-visualizar missão")
@@ -220,10 +246,10 @@ class Jogo:
             "5": Missao.missao_5(self),
         }
 
-        dif = mapa.get(op)
-        if dif:
-            self.missao_config["missao"] = dif
-            print(f"Missão definida: {dif}")
+        escolha = mapa.get(op)
+        if escolha:
+            self.missao_config["missao"] = escolha
+            print(f"Missão definida: {escolha}")
 
 
     def _escolher_dificuldade(self) -> None:
@@ -233,10 +259,10 @@ class Jogo:
         print("[3] Difícil")
         op = input("> ").strip()
         mapa = {"1": "Fácil", "2": "Média", "3": "Difícil"}
-        dif = mapa.get(op)
-        if dif:
-            self.missao_config["dificuldade"] = dif
-            print(f"Dificuldade definida: {dif}")
+        escolha = mapa.get(op)
+        if escolha:
+            self.missao_config["dificuldade"] = escolha
+            print(f"Dificuldade definida: {escolha}")
         else:
             print("Opção inválida.")
 
@@ -262,24 +288,33 @@ class Jogo:
         print("- Inimigos e recompensas: (em breve)")
 
     # ======================== Missão com combate ============================
-    def _iniciar_missao_placeholder(self) -> None:
+    def _iniciar_missao_placeholder(self, inimigo=None) -> None:
         if not self.personagem["nome"]:
             print("Crie um personagem antes de iniciar uma missão.")
             return
 
-        heroi = self._construir_personagem()
+        # Cria inimigo se não informado
+        if inimigo is None:
+            inimigo = Inimigo.goblin()
+
+        heroi = self.mostrar_personagem
         engine = Missao(
+            inimigo= inimigo,
             heroi=heroi,
             cenario=self.missao_config['cenario'],
             dificuldade=self.missao_config['dificuldade']
         )
+
+
+
+
         resultado = engine.executar()
         # (opcional) usar resultado.venceu / resultado.encontros_vencidos / resultado.detalhes
 
         print("\nIniciando missão...")
         print(f"Cenário: {self.missao_config['cenario']} | Dificuldade: {self.missao_config['dificuldade']}")
 
-        heroi = self._construir_personagem()
+        heroi = self._mostrar_personagem()
         inimigo = Inimigo.goblin()
 
         turno = 1
@@ -320,7 +355,7 @@ class Jogo:
                 elif acao == "3" and not bloqueado:
                     dano_causado = heroi.usar_especial(2, alvo=inimigo)
                 elif acao == "4" and not bloqueado:
-                    if isinstance(heroi, Curandeiro):
+                    if isinstance(heroi, Personagem.Curandeiro):
                         print("(Curandeiro esp3 cura aliados — ignorado no 1x1)")
                         dano_causado = 0
                     else:
