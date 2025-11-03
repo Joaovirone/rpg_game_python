@@ -1,4 +1,5 @@
 from __future__ import annotations
+from utils.logger import Logger
 import json
 import os
 from models.base import Atributos, Entidade
@@ -15,7 +16,8 @@ class Jogo:
     """
 
     def __init__(self) -> None:
-        
+        self.logger = Logger()
+        self.logger.info("Iniciando o jogo...")
         self.personagem = {
             "nome": None,
             "arquetipo": None,   # "Guerreiro", "Mago", "Arqueiro", "Curandeiro"
@@ -120,6 +122,7 @@ class Jogo:
                 print("Opção inválida.")
 
     def _definir_nome(self) -> None:
+        self.logger.info(f"Nome do Personagem sendo definido.")
         nome = input("Digite o nome do personagem: ").strip()
         if nome:
             self.personagem["nome"] = nome
@@ -294,6 +297,7 @@ class Jogo:
 
     # ======================== Missão com combate ============================
     def _iniciar_missao_placeholder(self, inimigo=None) -> None:
+        self.logger.info(f"Iniciando missão: {self.missao_config['missao']}")
         if not self.personagem["nome"]:
             print("Crie um personagem antes de iniciar uma missão.")
             return
@@ -455,8 +459,10 @@ class Jogo:
             with open(nome_arquivo, "w", encoding="utf-8") as f:
 
                 json.dump(dados, f, indent=4, ensure_ascii=False)
-        except Exception as e:
-            print(f"Erro ao salvar arquivo: {e}")
+                self.logger.info(f"Arquivo salvo: {nome_arquivo}")
+        except Exception as error:
+            self.logger.info(f"Erro ao salvar arquivo: {error}")
+            print(f"Erro ao salvar arquivo: {error}")
 
     def _ajuda_salvar(self) -> None:
         print("\nAjuda — Salvar")
@@ -501,6 +507,7 @@ class Jogo:
         nome = input("Nome do arquivo para carregar (ex.: meu_jogo.json): ").strip() or "save.json"
         if not nome.endswith(".json"):
             nome += ".json"
+        #parametro a ser usado para carregar na pasta saves
         caminho_completo = os.path.join(self.save_dir,nome)
         #Verifica se o arquivo existe na pasta saves
         if not os.path.exists(caminho_completo):
@@ -522,8 +529,10 @@ class Jogo:
                 dados = json.load(f)
             self.personagem = dados.get("personagem", self.personagem)
             self.missao_config = dados.get("missao_config", self.missao_config)
-        except Exception as e:
-            print(f"Erro ao carregar arquivo: {e}")
+        except Exception as error:
+            self.logger.info(f"Erro ao carregar arquivo: {error}")
+            print(f"Erro ao carregar arquivo: {error}")
+            
 
     def _ajuda_carregar(self) -> None:
         print("\nAjuda — Carregar")
