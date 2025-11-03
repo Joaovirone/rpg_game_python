@@ -1,5 +1,6 @@
 from __future__ import annotations
-
+import json
+import os
 from models.base import Atributos, Entidade
 from models.inimigo import Inimigo
 from models.personagem import Personagem, Entidade, Curandeiro, Arqueiro, Mago, Guerreiro
@@ -36,6 +37,10 @@ class Jogo:
         }
         self._ultimo_save = None
         self._ultimo_load = None
+
+        #Caminha que é feito para os saves irem pra pasta saver
+        self.save_dir = os.path.join(os.getcwd(), "saves")
+        os.makedirs(self.save_dir, exist_ok=True) # garante que o diretório exista
 
     # ======================================================================
     # Construção do herói a partir do arquétipo escolhido no menu
@@ -425,13 +430,33 @@ class Jogo:
                 print("Opção inválida.")
 
     def _salvar_rapido(self) -> None:
-        self._ultimo_save = "quick_save.json"
+        #parametro a ser usado para salvar na pasta saves
+        nome_arquivo = os.path.join(self.save_dir, "quick_save.json")
+        self.salvar_arquivo(nome_arquivo)
+        self._ultimo_save = nome_arquivo
         print(f"✔ Salvo (simulado) em: {self._ultimo_save}")
 
     def _salvar_nomeado(self) -> None:
         nome = input("Nome do arquivo de save (ex.: meu_jogo.json): ").strip() or "save.json"
-        self._ultimo_save = nome
-        print(f"✔ Salvo (simulado) em: {self._ultimo_save}")
+        if not nome.endswith(".json"):
+            nome += ".json"
+        #parametro a ser usado para salvar na pasta saves
+        caminho_completo = os.path.join(self.save_dir, nome)
+        self.salvar_arquivo(caminho_completo)
+        self._ultimo_save = caminho_completo
+        print(f"✔ Progresso Salvo Como: {self._ultimo_save}")
+
+    def salvar_arquivo(self, nome_arquivo: str) -> None:
+        dados ={
+            "personagem": self.personagem,
+            "missao_config": self.missao_config,
+        }
+        try:
+            with open(nome_arquivo, "w", encoding="utf-8") as f:
+
+                json.dump(dados, f, indent=4, ensure_ascii=False)
+        except Exception as e:
+            print(f"Erro ao salvar arquivo: {e}")
 
     def _ajuda_salvar(self) -> None:
         print("\nAjuda — Salvar")
@@ -444,6 +469,7 @@ class Jogo:
             print("\n=== Carregar ===")
             print("[1] Carregar último save (simulado)")
             print("[2] Carregar por nome (simulado)")
+            print("[3] Mostrar Saves disponíveis")  
             print("[9] Ajuda")
             print("[0] Voltar")
             op = input("> ").strip()
@@ -452,6 +478,8 @@ class Jogo:
                 self._carregar_ultimo()
             elif op == "2":
                 self._carregar_nomeado()
+            elif op == "3":
+                self.listar_saves()
             elif op == "9":
                 self._ajuda_carregar()
             elif op == "0":
@@ -460,19 +488,42 @@ class Jogo:
                 print("Opção inválida.")
 
     def _carregar_ultimo(self) -> None:
-        if self._ultimo_save:
-            self._ultimo_load = self._ultimo_save
-            print(f"✔ Carregado (simulado) de: {self._ultimo_load}")
-        else:
-            print("Nenhum save recente encontrado (simulado).")
+        
+        if not self._ultimo_save:
+            return print("Nenhum save recente encontrado.")
+        if not os.path.exists(self._ultimo_save):
+            return print(f"Arquivo '{self._ultimo_save}' não foi encontrado.")
+        
+        self.carregar_arquivo(self._ultimo_save)
+        print(f"✔ Progresso carregado de: {self._ultimo_save}")
 
     def _carregar_nomeado(self) -> None:
-        nome = input("Nome do arquivo para carregar (ex.: meu_jogo.json): ").strip()
-        if nome:
-            self._ultimo_load = nome
-            print(f"✔ Carregado (simulado) de: {self._ultimo_load}")
-        else:
-            print("Nome não informado.")
+        nome = input("Nome do arquivo para carregar (ex.: meu_jogo.json): ").strip() or "save.json"
+        if not nome.endswith(".json"):
+            nome += ".json"
+        caminho_completo = os.path.join(self.save_dir,nome)
+        #Verifica se o arquivo existe na pasta saves
+        if not os.path.exists(caminho_completo):
+            return print(f"Arquivo '{caminho_completo}' não foi encontrado.")
+        self.carregar_arquivo(caminho_completo)
+        print(f"✔ Progresso carregado de: {caminho_completo}")
+
+    def listar_saves(self) -> None:
+        """Lista os arquivos de save na pasta de saves."""
+        print("\nArquivos de Save Disponíveis:")
+        arquivos = os.listdir(self.save_dir)
+        for arquivo in arquivos:
+            if arquivo.endswith(".json"):
+                print(f"- {arquivo}")
+
+    def carregar_arquivo(self, nome_arquivo: str) -> None:
+        try:
+            with open(nome_arquivo, "r", encoding="utf-8") as f:
+                dados = json.load(f)
+            self.personagem = dados.get("personagem", self.personagem)
+            self.missao_config = dados.get("missao_config", self.missao_config)
+        except Exception as e:
+            print(f"Erro ao carregar arquivo: {e}")
 
     def _ajuda_carregar(self) -> None:
         print("\nAjuda — Carregar")
