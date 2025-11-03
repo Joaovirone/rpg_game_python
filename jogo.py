@@ -1,5 +1,6 @@
 from __future__ import annotations
-
+import json
+import os
 
 class Jogo:
     """
@@ -10,14 +11,85 @@ class Jogo:
     def __init__(self) -> None:
         self.personagem = {
             "nome": None,
-            "arquetipo": None,   # ex.: "Guerreiro", "Mago" (placeholder textual)
+            "arquetipo": None,  # ex.: "Guerreiro", "Mago" (placeholder textual)
         }
         self.missao_config = {
             "dificuldade": "Fácil",  # Fácil | Média | Difícil
-            "cenario": "Trilha",     # rótulo ilustrativo
+            "cenario": "Trilha",  # rótulo ilustrativo
         }
         self._ultimo_save = None
         self._ultimo_load = None
+
+        #  Define o nome da pasta
+        self.save_directory = "saves"
+
+        #  Garante que essa pasta exista
+        try:
+
+            os.makedirs(self.save_directory, exist_ok=True)
+        except OSError as e:
+            print(f"Erro ao criar o diretório de saves: {e}")
+
+    def SaveFile(self, GameSaveFile: str) -> bool:
+
+
+        full_save_path = os.path.join(self.save_directory, GameSaveFile)
+
+
+        game_state = {
+            "personagem": self.personagem,
+            "missao_config": self.missao_config,
+        }
+
+        try:
+
+            with open(full_save_path, 'w', encoding='utf-8') as f:
+
+                json.dump(game_state, f, indent=4, ensure_ascii=False)
+
+            self._ultimo_save = GameSaveFile
+            # Mostre o caminho completo para o usuário
+            print(f"✔ Jogo salvo com sucesso em: {full_save_path}")
+
+            return True
+        except IOError as e:
+            print(f"Erro ao salvar o arquivo: {e}")
+            return False
+        except Exception as e:
+            print(f"Um erro inesperado ocorreu ao salvar: {e}")
+            return False
+
+    def _real_load(self, GameSaveFile: str) -> bool:
+
+        # Cria o caminho completo para LER o arquivo, ex: "saves/meu_save.json"
+        full_load_path = os.path.join(self.save_directory, GameSaveFile)
+        if not os.path.exists(full_load_path):
+            print(f"Erro: Arquivo de save não encontrado: {full_load_path}")
+            return False
+
+        try:
+            with open(full_load_path, 'r', encoding='utf-8') as f:
+
+                dados_carregados = json.load(f)
+
+            self.personagem = dados_carregados.get("personagem", self.personagem)
+            self.missao_config = dados_carregados.get("missao_config", self.missao_config)
+
+            self._ultimo_load = GameSaveFile
+
+            print(f"✔ Jogo carregado com sucesso de: {full_load_path}")
+
+            print(f"Personagem carregado: {self.personagem['nome']} ({self.personagem['arquetipo']})")
+            return True
+        except json.JSONDecodeError:
+            print(f"Erro: O arquivo '{full_load_path}' está corrompido ou não é um JSON válido.")
+            return False
+        except IOError as e:
+            print(f"Erro ao ler o arquivo: {e}")
+            return False
+        except Exception as e:
+            print(f"Um erro inesperado ocorreu ao carregar: {e}")
+            return False
 
     def menu_criar_personagem(self) -> None:
         while True:
@@ -173,7 +245,7 @@ class Jogo:
     def menu_salvar(self) -> None:
         while True:
             print("\n=== Salvar ===")
-            print("[1] Salvar rápido (simulado)")
+            print("[1] Salvar rápido (quick_save.json)")
             print("[2] Salvar com nome (simulado)")
             print("[9] Ajuda")
             print("[0] Voltar")
@@ -191,13 +263,21 @@ class Jogo:
                 print("Opção inválida.")
 
     def _salvar_rapido(self) -> None:
-        self._ultimo_save = "quick_save.json"
-        print(f"✔ Salvo (simulado) em: {self._ultimo_save}")
+
+        self.SaveFile("quick_save.json")
 
     def _salvar_nomeado(self) -> None:
-        nome = input("Nome do arquivo de save (ex.: meu_jogo.json): ").strip() or "save.json"
-        self._ultimo_save = nome
-        print(f"✔ Salvo (simulado) em: {self._ultimo_save}")
+        nome = input("GameSaveFile: ").strip()
+
+        # Adiciona .json se o usuário esquecer
+        if nome and not nome.endswith(".json"):
+            nome += ".json"
+
+        if nome:
+            # CORREÇÃO AQUI: Chame 'SaveFile' em vez de '_real_load'
+            self.SaveFile(nome)
+        else:
+            print("Nome inválido. Operação cancelada.")
 
     def _ajuda_salvar(self) -> None:
         print("\nAjuda — Salvar")
@@ -227,20 +307,25 @@ class Jogo:
 
     def _carregar_ultimo(self) -> None:
         if self._ultimo_save:
-            self._ultimo_load = self._ultimo_save
-            print(f"✔ Carregado (simulado) de: {self._ultimo_load}")
+            # Chama a lógica real de load
+            self._real_load(self._ultimo_save)
         else:
-            print("Nenhum save recente encontrado (simulado).")
+            print("Nenhum save recente encontrado.")
 
     def _carregar_nomeado(self) -> None:
         nome = input("Nome do arquivo para carregar (ex.: meu_jogo.json): ").strip()
+
+        # Adiciona .json se o usuário esquecer
+        if nome and not nome.endswith(".json"):
+            nome += ".json"
+
         if nome:
-            self._ultimo_load = nome
-            print(f"✔ Carregado (simulado) de: {self._ultimo_load}")
+            # Chama a lógica real de load
+            self._real_load(nome)
         else:
             print("Nome não informado.")
 
     def _ajuda_carregar(self) -> None:
         print("\nAjuda — Carregar")
-        print("- O carregamento aqui é apenas ilustrativo (sem leitura real).")
-        print("- Use o nome que você “salvou” anteriormente para simular.")
+        print("- Carrega os dados de personagem e missão do arquivo JSON.")
+        print("- Use o nome que você salvou anteriormente.")

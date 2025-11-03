@@ -3,7 +3,6 @@ from jogo import Jogo
 
 
 def menu() -> None:
-    """Menu principal do aplicativo."""
     jogo = Jogo()
     while True:
         print("\n=== RPG OO — Menu Principal ===")
@@ -19,7 +18,7 @@ def menu() -> None:
         elif op == "2":
             jogo.menu_missao()
         elif op == "3":
-            jogo.menu_salvar()
+           jogo.menu_salvar()
         elif op == "4":
             jogo.menu_carregar()
         elif op == "0":

@@ -1,0 +1,10 @@
+{
+    "personagem": {
+        "nome": "sadasd",
+        "arquetipo": "Mago"
+    },
+    "missao_config": {
+        "dificuldade": "Fácil",
+        "cenario": "Trilha"
+    }
+}
