@@ -9,6 +9,7 @@ class Personagem(Entidade):
         super().__init__(nome, atrib)
         self.nivel = 1
         self.xp = 0
+        self.efeitos = {} # Inicializa o dicionário de efeitos
 
     def calcular_dano_base(self) -> int:
         base = self._atrib.ataque
@@ -39,6 +40,10 @@ class Personagem(Entidade):
     def restaurar(self):
         self._atrib.vida = self._atrib.vida_max
         self._atrib.mana = max(self._atrib.mana, 30)
+
+    def esta_vivo(self) -> bool: # verifica se o Heroi/Inimigo está vivo
+        return self._atrib.vida > 0
+
 
     def __str__(self):
         return f"{self.nome} (Nivel: {self.nivel}) - {self._atrib.vida}/{self._atrib.vida_max} HP, {self._atrib.mana} mana"

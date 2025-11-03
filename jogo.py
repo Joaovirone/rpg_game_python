@@ -2,6 +2,7 @@ from __future__ import annotations
 from utils.logger import Logger
 import json
 import os
+from utils.logger import logger
 from models.base import Atributos, Entidade
 from models.inimigo import Inimigo
 from models.personagem import Personagem, Entidade, Curandeiro, Arqueiro, Mago, Guerreiro
@@ -16,6 +17,10 @@ class Jogo:
     """
 
     def __init__(self) -> None:
+
+
+        self.nome_personagem : Personagem | None = None
+        
         self.logger = Logger()
         self.logger.info("Iniciando o jogo...")
         self.personagem = {
@@ -40,7 +45,7 @@ class Jogo:
         self._ultimo_save = None
         self._ultimo_load = None
 
-        #Caminha que é feito para os saves irem pra pasta saver
+        #Caminho que é feito para os saves irem pra pasta saver
         self.save_dir = os.path.join(os.getcwd(), "saves")
         os.makedirs(self.save_dir, exist_ok=True) # garante que o diretório exista
 
@@ -122,7 +127,6 @@ class Jogo:
                 print("Opção inválida.")
 
     def _definir_nome(self) -> None:
-        self.logger.info(f"Nome do Personagem sendo definido.")
         nome = input("Digite o nome do personagem: ").strip()
         if nome:
             self.personagem["nome"] = nome
@@ -133,7 +137,7 @@ class Jogo:
     def _escolher_arquetipo(self) -> None:
 
         print("\nArquétipos disponíveis:")
-        print("[1] Guerreiro\n")
+        print("[1] Guerreiro")
         print("[2] Mago")
         print("[3] Arqueiro")
         print("[4] Curandeiro")
@@ -162,10 +166,25 @@ class Jogo:
 
     #AQUI estou tentando fazer o personagem escolhido aparecer os atributos deles vida, manda e etc (não consegui ainda)
 
-    def mostrar_personagem(self, nome_arquetipo: str, nome_heroi: str):
+    def mostrar_personagem(self, nome_arquetipo: str | None = None, nome_heroi: str | None = None):
         """
         Cria e retorna um personagem do arquétipo escolhido, exibindo preview das estatísticas.
         """
+        if not nome_arquetipo or not nome_heroi:
+            if self.nome_personagem:
+                personagem = self.nome_personagem
+                arq = personagem._atrib
+                print(f"\nPersonagem atual: {personagem.nome} ({personagem.__class__.__name__})")
+                print(f"🩸 Vida: {arq.vida}/{arq.vida_max}")
+                print(f"⚔️ Ataque: {arq.ataque}")
+                print(f"🛡️ Defesa: {arq.defesa}")
+                print(f"🔮 Mana: {getattr(arq, 'mana', 0)}")
+                print(f"✨ Ataque Mágico: {personagem.ataque_magico}\n")
+                return personagem
+            else:
+                print("Nenhum personagem criado ainda.")
+                return None
+
         # Pega a classe do arquétipo
         classe_arquetipo = self.arquetipos.get(nome_arquetipo)
         if not classe_arquetipo:
@@ -174,16 +193,18 @@ class Jogo:
 
         # Cria o personagem (atributos já são definidos no construtor do arquétipo)
         personagem = classe_arquetipo(nome_heroi)
+        self.nome_personagem = personagem
 
         # Mostra estatísticas
-        a = personagem._atrib
+        arq = personagem._atrib
         print(f"\nPreview de {personagem.nome}:")
-        print(f"🩸 Vida: {a.vida}/{a.vida_max}")
-        print(f"⚔️ Ataque: {a.ataque}")
-        print(f"🛡️ Defesa: {a.defesa}")
-        print(f"🔮 Mana: {getattr(a, 'mana', 0)}")
+        print(f"🩸 Vida: {arq.vida}/{arq.vida_max}")
+        print(f"⚔️ Ataque: {arq.ataque}")
+        print(f"🛡️ Defesa: {arq.defesa}")
+        print(f"🔮 Mana: {getattr(arq, 'mana', 0)}")
         print(f"✨ Ataque Mágico: {personagem.ataque_magico}\n")
 
+        self.nome_personagem = personagem
         return personagem
 
     def _confirmar_criacao(self) -> None:
@@ -193,6 +214,11 @@ class Jogo:
         if not self.personagem["arquetipo"]:
             print("Escolha um arquétipo antes de confirmar a criação.")
             return
+
+        nome_arquetipo = self.personagem["arquetipo"]
+        nome_heroi = self.personagem["nome"]
+        self.heroi = self.mostrar_personagem(nome_arquetipo, nome_heroi)
+
         print("\nPersonagem criado com sucesso!")
         print(f"Nome: {self.personagem['nome']} | Arquétipo: {self.personagem['arquetipo']}")
         print("(Obs.: atributos base são definidos automaticamente na missão.)")
@@ -239,11 +265,12 @@ class Jogo:
 
 
     def escolher_missao(self) -> None:
+
         print("Escolha de Missões:")
         print("[1] Eliminar Ladrão")
         print("[2] Eliminar Goblin")
         print("[3] Eliminar Golem")
-        print("[4] ELiminar Elfo")
+        print("[4] Eliminar Elfo")
         print("[5] Eliminar Dragão")
         op = input("> ").strip()
         mapa = {
@@ -294,115 +321,7 @@ class Jogo:
         print(f"- Dificuldade: {self.missao_config['dificuldade'] or '(não definida)'}")
         print(f"- Cenário:     {self.missao_config['cenario'] or '(não definido)'}")
         print("- Inimigos e recompensas: (em breve)")
-
-    # ======================== Missão com combate ============================
-    def _iniciar_missao_placeholder(self, inimigo=None) -> None:
-        self.logger.info(f"Iniciando missão: {self.missao_config['missao']}")
-        if not self.personagem["nome"]:
-            print("Crie um personagem antes de iniciar uma missão.")
-            return
-
-        # Cria inimigo se não informado
-        if inimigo is None:
-            inimigo = Inimigo.goblin()
-
-        heroi = self.mostrar_personagem
-        engine = Missao(
-            inimigo= inimigo,
-            heroi=heroi,
-            cenario=self.missao_config['cenario'],
-            dificuldade=self.missao_config['dificuldade']
-        )
-
-
-
-
-        resultado = engine.executar()
-        # (opcional) usar resultado.venceu / resultado.encontros_vencidos / resultado.detalhes
-
-        print("\nIniciando missão...")
-        print(f"Cenário: {self.missao_config['cenario']} | Dificuldade: {self.missao_config['dificuldade']}")
-
-        heroi = self._mostrar_personagem()
-        inimigo = Inimigo.goblin()
-
-        turno = 1
-        while heroi.esta_vivo() and inimigo.esta_vivo():
-            print(f"\n=== Turno {turno} ===")
-
-            # Efeitos no início do turno do herói (veneno/eletro/etc.)
-            dano_tick_heroi = heroi.inicio_turno()
-            if dano_tick_heroi:
-                print(f"(Efeitos) {heroi.nome} sofre {dano_tick_heroi} de dano | {heroi.barra_hp()}")
-
-            if heroi.efeitos.get("nao_pode_atacar", 0) > 0:
-                print(f"{heroi.nome} está impossibilitado de agir neste turno!")
-            else:
-                # HUD com Mana + custos dos especiais (+ prévia)
-                self._mostrar_hud_turno(heroi, inimigo)
-                acao = input("> ").strip()
-
-                dano_causado = 0
-                bloqueado = False
-
-                # Bloqueio prévio para especiais (teclas 2..4) com mana insuficiente
-                if acao in {"2", "3", "4"}:
-                    esp_idx = int(acao) - 2  # 0,1,2
-                    especiais = self._lista_especiais(heroi)
-                    if 0 <= esp_idx < len(especiais):
-                        _, nome_esp, custo_esp = especiais[esp_idx]
-                        mana_atual = getattr(heroi._atrib, "mana", 0)
-                        if mana_atual < custo_esp:
-                            print(f"Mana insuficiente para {nome_esp} ({mana_atual}/{custo_esp}). Escolha outra ação.")
-                            bloqueado = True  # impede a execução do especial
-
-                # Execução das ações
-                if acao == "1":
-                    dano_causado = self._ataque_normal_com_d20(heroi, inimigo)
-                elif acao == "2" and not bloqueado:
-                    dano_causado = heroi.usar_especial(1, alvo=inimigo)
-                elif acao == "3" and not bloqueado:
-                    dano_causado = heroi.usar_especial(2, alvo=inimigo)
-                elif acao == "4" and not bloqueado:
-                    if isinstance(heroi, Personagem.Curandeiro):
-                        print("(Curandeiro esp3 cura aliados — ignorado no 1x1)")
-                        dano_causado = 0
-                    else:
-                        dano_causado = heroi.usar_especial(3, alvo=inimigo)
-                elif acao == "0":
-                    print("Você recuou da luta!")
-                    break
-                else:
-                    if not bloqueado:
-                        print("Ação inválida.")
-
-                if dano_causado:
-                    print(f"Você causou {dano_causado} de dano. HP do {inimigo.nome}: {inimigo.barra_hp()}")
-
-            if not inimigo.esta_vivo():
-                print(f"\n{inimigo.nome} foi derrotado!")
-                break
-
-            # Início do turno do inimigo — efeitos nele (veneno/eletro etc.)
-            dano_tick_ini = tick_efeitos_inicio_turno(inimigo)
-            if dano_tick_ini:
-                print(f"(Efeitos) {inimigo.nome} sofre {dano_tick_ini} de dano | {inimigo.barra_hp()}")
-            if not inimigo.esta_vivo():
-                print(f"\n{inimigo.nome} caiu pelos efeitos!")
-                break
-
-            if inimigo.efeitos.get("nao_pode_atacar", 0) > 0:
-                print(f"{inimigo.nome} está atordoado e não ataca.")
-            else:
-                # Ataque simples do inimigo: d6 + ataque - defesa do herói
-                dano_in = max(0, rolar_d6() + inimigo._atrib.ataque - heroi._atrib.defesa)
-                heroi.receber_dano(dano_in)
-                print(f"{inimigo.nome} ataca e causa {dano_in} de dano. Seu HP: {heroi.barra_hp()} (Mana: {getattr(heroi._atrib, 'mana', 0)})")
-
-            turno += 1
-
-        print("\nMissão finalizada (simulado). Retornando ao menu de Missão...")
-        
+   
 
     def _ajuda_missao(self) -> None:
         print("\nAjuda — Missão")
@@ -444,11 +363,17 @@ class Jogo:
         nome = input("Nome do arquivo de save (ex.: meu_jogo.json): ").strip() or "save.json"
         if not nome.endswith(".json"):
             nome += ".json"
+
+        if not os.path.exists(self.save_dir):
+            os.makedirs(self.save_dir)
+
+            
         #parametro a ser usado para salvar na pasta saves
         caminho_completo = os.path.join(self.save_dir, nome)
         self.salvar_arquivo(caminho_completo)
         self._ultimo_save = caminho_completo
         print(f"✔ Progresso Salvo Como: {self._ultimo_save}")
+        
 
     def salvar_arquivo(self, nome_arquivo: str) -> None:
         dados ={
@@ -459,7 +384,7 @@ class Jogo:
             with open(nome_arquivo, "w", encoding="utf-8") as f:
 
                 json.dump(dados, f, indent=4, ensure_ascii=False)
-                self.logger.info(f"Arquivo salvo: {nome_arquivo}")
+                self.logger.info(f"Jogo salvo em : {nome_arquivo}")
         except Exception as error:
             self.logger.info(f"Erro ao salvar arquivo: {error}")
             print(f"Erro ao salvar arquivo: {error}")
@@ -532,7 +457,6 @@ class Jogo:
         except Exception as error:
             self.logger.info(f"Erro ao carregar arquivo: {error}")
             print(f"Erro ao carregar arquivo: {error}")
-            
 
     def _ajuda_carregar(self) -> None:
         print("\nAjuda — Carregar")

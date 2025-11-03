@@ -9,3 +9,5 @@ class Logger:
 
     def info(self, msg: str) -> None:
         print(f"[LOG] {msg}")
+
+logger = Logger()
