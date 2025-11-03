@@ -1,4 +1,5 @@
 from __future__ import annotations
+from utils.logger import Logger
 import json
 import os
 from utils.logger import logger
@@ -17,12 +18,11 @@ class Jogo:
 
     def __init__(self) -> None:
 
-        # Criação do logger
-        self.logger = logger
-        self.logger.info("Iniciando jogo...")
 
         self.nome_personagem : Personagem | None = None
         
+        self.logger = Logger()
+        self.logger.info("Iniciando o jogo...")
         self.personagem = {
             "nome": None,
             "arquetipo": None,   # "Guerreiro", "Mago", "Arqueiro", "Curandeiro"
@@ -127,7 +127,6 @@ class Jogo:
                 print("Opção inválida.")
 
     def _definir_nome(self) -> None:
-        self.logger.info(f"Nome do personagem sendo definido.")
         nome = input("Digite o nome do personagem: ").strip()
         if nome:
             self.personagem["nome"] = nome
@@ -266,7 +265,7 @@ class Jogo:
 
 
     def escolher_missao(self) -> None:
-        self.logger.info("Escolhendo as missões disponíveis.")
+
         print("Escolha de Missões:")
         print("[1] Eliminar Ladrão")
         print("[2] Eliminar Goblin")
@@ -433,6 +432,7 @@ class Jogo:
         nome = input("Nome do arquivo para carregar (ex.: meu_jogo.json): ").strip() or "save.json"
         if not nome.endswith(".json"):
             nome += ".json"
+        #parametro a ser usado para carregar na pasta saves
         caminho_completo = os.path.join(self.save_dir,nome)
         #Verifica se o arquivo existe na pasta saves
         if not os.path.exists(caminho_completo):
