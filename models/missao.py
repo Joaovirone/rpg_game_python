@@ -238,5 +238,117 @@ class Missao:
 
 
 
+    """
+    # ======================== Missão com combate ============================
+    def _iniciar_missao_placeholder(self, inimigo=None) -> None:
+        self.logger.info("Iniciando a missão.")
+        if not self.personagem["nome"] or not self.personagem["arquetipo"]:
+            print("Crie um personagem antes de iniciar uma missão.")
+            return
 
+        # Cria inimigo se não informado
+        if inimigo is None:
+            inimigo = Inimigo.goblin()
+
+        # Pega os dados do personagem criado no menu
+        nome_arquetipo = self.personagem["arquetipo"]
+        nome_heroi = self.personagem["nome"]
+
+        heroi = self.mostrar_personagem(nome_arquetipo, nome_heroi)
+        engine = Missao(
+            inimigo= inimigo,
+            heroi=heroi,
+            cenario=self.missao_config['cenario'],
+            dificuldade=self.missao_config['dificuldade']
+        )
+
+
+
+
+        resultado = engine.executar()
+        # (opcional) usar resultado.venceu / resultado.encontros_vencidos / resultado.detalhes
+
+        print("\nIniciando missão...")
+        print(f"Cenário: {self.missao_config['cenario']} | Dificuldade: {self.missao_config['dificuldade']}")
+
+        heroi = self._mostrar_personagem()
+        inimigo = Inimigo.goblin()
+
+        turno = 1
+        while heroi.esta_vivo() and inimigo.esta_vivo():
+            print(f"\n=== Turno {turno} ===")
+
+            # Efeitos no início do turno do herói (veneno/eletro/etc.)
+            dano_tick_heroi = heroi.inicio_turno()
+            if dano_tick_heroi:
+                print(f"(Efeitos) {heroi.nome} sofre {dano_tick_heroi} de dano | {heroi.barra_hp()}")
+
+            if heroi.efeitos.get("nao_pode_atacar", 0) > 0:
+                print(f"{heroi.nome} está impossibilitado de agir neste turno!")
+            else:
+                # HUD com Mana + custos dos especiais (+ prévia)
+                self._mostrar_hud_turno(heroi, inimigo)
+                acao = input("> ").strip()
+
+                dano_causado = 0
+                bloqueado = False
+
+                # Bloqueio prévio para especiais (teclas 2..4) com mana insuficiente
+                if acao in {"2", "3", "4"}:
+                    esp_idx = int(acao) - 2  # 0,1,2
+                    especiais = self._lista_especiais(heroi)
+                    if 0 <= esp_idx < len(especiais):
+                        _, nome_esp, custo_esp = especiais[esp_idx]
+                        mana_atual = getattr(heroi._atrib, "mana", 0)
+                        if mana_atual < custo_esp:
+                            print(f"Mana insuficiente para {nome_esp} ({mana_atual}/{custo_esp}). Escolha outra ação.")
+                            bloqueado = True  # impede a execução do especial
+
+                # Execução das ações
+                if acao == "1":
+                    dano_causado = self._ataque_normal_com_d20(heroi, inimigo)
+                elif acao == "2" and not bloqueado:
+                    dano_causado = heroi.usar_especial(1, alvo=inimigo)
+                elif acao == "3" and not bloqueado:
+                    dano_causado = heroi.usar_especial(2, alvo=inimigo)
+                elif acao == "4" and not bloqueado:
+                    if isinstance(heroi, Personagem.Curandeiro):
+                        print("(Curandeiro esp3 cura aliados — ignorado no 1x1)")
+                        dano_causado = 0
+                    else:
+                        dano_causado = heroi.usar_especial(3, alvo=inimigo)
+                elif acao == "0":
+                    print("Você recuou da luta!")
+                    break
+                else:
+                    if not bloqueado:
+                        print("Ação inválida.")
+
+                if dano_causado:
+                    print(f"Você causou {dano_causado} de dano. HP do {inimigo.nome}: {inimigo.barra_hp()}")
+
+            if not inimigo.esta_vivo():
+                print(f"\n{inimigo.nome} foi derrotado!")
+                break
+
+            # Início do turno do inimigo — efeitos nele (veneno/eletro etc.)
+            dano_tick_ini = tick_efeitos_inicio_turno(inimigo)
+            if dano_tick_ini:
+                print(f"(Efeitos) {inimigo.nome} sofre {dano_tick_ini} de dano | {inimigo.barra_hp()}")
+            if not inimigo.esta_vivo():
+                print(f"\n{inimigo.nome} caiu pelos efeitos!")
+                break
+
+            if inimigo.efeitos.get("nao_pode_atacar", 0) > 0:
+                print(f"{inimigo.nome} está atordoado e não ataca.")
+            else:
+                # Ataque simples do inimigo: d6 + ataque - defesa do herói
+                dano_in = max(0, rolar_d6() + inimigo._atrib.ataque - heroi._atrib.defesa)
+                heroi.receber_dano(dano_in)
+                print(f"{inimigo.nome} ataca e causa {dano_in} de dano. Seu HP: {heroi.barra_hp()} (Mana: {getattr(heroi._atrib, 'mana', 0)})")
+
+            turno += 1
+
+        print("\nMissão finalizada (simulado). Retornando ao menu de Missão...")
+        """
 
