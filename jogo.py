@@ -1,6 +1,7 @@
 from __future__ import annotations
 import json
 import os
+import utils.logger as logger
 from models.base import Atributos, Entidade
 from models.inimigo import Inimigo
 from models.personagem import Personagem, Entidade, Curandeiro, Arqueiro, Mago, Guerreiro
@@ -15,6 +16,9 @@ class Jogo:
     """
 
     def __init__(self) -> None:
+
+        logger.Logger.self = logger.Logger()
+        logger.Logger.self.info("Iniciando o jogo...")
         
         self.personagem = {
             "nome": None,
@@ -120,6 +124,7 @@ class Jogo:
                 print("Opção inválida.")
 
     def _definir_nome(self) -> None:
+        self.logger.info(f"Nome do personagem sendo definido.")
         nome = input("Digite o nome do personagem: ").strip()
         if nome:
             self.personagem["nome"] = nome
@@ -130,7 +135,7 @@ class Jogo:
     def _escolher_arquetipo(self) -> None:
 
         print("\nArquétipos disponíveis:")
-        print("[1] Guerreiro\n")
+        print("[1] Guerreiro")
         print("[2] Mago")
         print("[3] Arqueiro")
         print("[4] Curandeiro")
@@ -236,11 +241,12 @@ class Jogo:
 
 
     def escolher_missao(self) -> None:
+        self.logger.info("Escolhendo as missões disponíveis.")
         print("Escolha de Missões:")
         print("[1] Eliminar Ladrão")
         print("[2] Eliminar Goblin")
         print("[3] Eliminar Golem")
-        print("[4] ELiminar Elfo")
+        print("[4] Eliminar Elfo")
         print("[5] Eliminar Dragão")
         op = input("> ").strip()
         mapa = {
@@ -294,6 +300,7 @@ class Jogo:
 
     # ======================== Missão com combate ============================
     def _iniciar_missao_placeholder(self, inimigo=None) -> None:
+        self.logger.info("Iniciando a missão.")
         if not self.personagem["nome"]:
             print("Crie um personagem antes de iniciar uma missão.")
             return
@@ -455,8 +462,10 @@ class Jogo:
             with open(nome_arquivo, "w", encoding="utf-8") as f:
 
                 json.dump(dados, f, indent=4, ensure_ascii=False)
-        except Exception as e:
-            print(f"Erro ao salvar arquivo: {e}")
+                self.logger.info(f"Jogo salvo em : {nome_arquivo}")
+        except Exception as error:
+            self.logger.info(f"Erro ao salvar arquivo: {error}")
+            print(f"Erro ao salvar arquivo: {error}")
 
     def _ajuda_salvar(self) -> None:
         print("\nAjuda — Salvar")
@@ -522,8 +531,9 @@ class Jogo:
                 dados = json.load(f)
             self.personagem = dados.get("personagem", self.personagem)
             self.missao_config = dados.get("missao_config", self.missao_config)
-        except Exception as e:
-            print(f"Erro ao carregar arquivo: {e}")
+        except Exception as error:
+            self.logger.info(f"Erro ao carregar arquivo: {error}")
+            print(f"Erro ao carregar arquivo: {error}")
 
     def _ajuda_carregar(self) -> None:
         print("\nAjuda — Carregar")
