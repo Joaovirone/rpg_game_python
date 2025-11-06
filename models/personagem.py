@@ -48,6 +48,64 @@ class Personagem(Entidade):
     def __str__(self):
         return f"{self.nome} (Nivel: {self.nivel}) - {self._atrib.vida}/{self._atrib.vida_max} HP, {self._atrib.mana} mana"
 
+    def inicio_turno(self) -> int:
+        """
+        Executa no início do turno do personagem
+        Seu Objetivo é aplicar danos por efeito
+        Aplica cura por efeitos de "regen" (caso exista)
+        Decrementar contadores de efeitos do tipo 'turnos' ( remove quando chegam em zero)
+        retornar o dano total aplicado neste tick (0 se nada)
+        """
+
+        # Garantias e variáveis uteis
+        # garante que self.efeitos exista e seja um dicionário
+        if not hasattr(self, "efeitos") or self.efeitos is None:
+            self.efeitos = {}
+
+        # Acesso aos atributos de vida/máxima para facilitar
+        vida_atual = getattr(self._atrib, "vida", 0)
+        vida_max = getattr(self._atrib, "vida_max", 0) or vida_atual
+
+        # Soma de todo dano aplicado no inicio de turno
+        dano_total = 0
+
+        # Percorre cópia das chaves para poder modificar o dicionário
+        for chave in list(self.efeitos.keys()):
+            # ignoramos a chave global "turnos" se usar ela em outro lugar
+            if chave == "turnos":
+                continue
+
+            # Trata contadores no formato ",<nome>_turnos"
+            if not chave.endswith("_turnos"):
+                continue
+
+            # ex: chave = "veneno_turnos" => prefixo = "veneno"
+            prefixo = chave[:-7]
+            contador = self.efeitos.get(chave, 0)
+
+    def ataque_basico(self, alvo) -> int:
+        """
+        Executa um ataque básico contra 'alvo' (normalmente um Inimigo).
+        - Usa calcular_dano_base() para decidir o dano bruto.
+        - Chama alvo.receber_dano(dano) para aplicar defesa e obter o dano efetivo.
+        - Retorna o dano efetivamente aplicado (int).
+        """
+        # calcula o dano teórico do personagem (leva nível, variação e crítico)
+        dano = self.calcular_dano_base()
+
+        # aplica no alvo usando o método do alvo (que já aplica defesa)
+        if hasattr(alvo, "receber_dano") and callable(alvo.receber_dano):
+            aplicado = alvo.receber_dano(dano)
+        else:
+            #subtrai diretamente da vida do alvo (mais frágil)
+            atual = getattr(alvo._atrib, "vida", 0)
+            nova = max(0, atual - dano)
+            setattr(alvo._atrib, "vida", nova)
+            aplicado = atual - nova
+
+        return aplicado
+
+
 # =========================================
 # Arquétipos
 # =========================================

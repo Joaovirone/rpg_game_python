@@ -5,7 +5,8 @@ de acordo com a dificuldade e o cenario escolhido
 """
 
 from random import choice
-from models.inimigo import Inimigo  # ajuste o caminho se necessário
+from .inimigo import Inimigo  # ajuste o caminho se necessário
+from typing import List
 
 
 def generate_horde(cenario: str, dificuldade: str) -> list[Inimigo]:

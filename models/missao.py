@@ -1,9 +1,128 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from .personagem import Personagem
-from .inimigo import Inimigo #generate_horde
-from dado import rolar_d20, rolar_d6
+from .inimigo import Inimigo  # generate_horde
+from rpg_game_python.dado import rolar_d6, rolar_d20
 from .horda import generate_horde
+from typing import List, Tuple, Dict
+
+# colocar após os imports em models/missao.py
+from typing import Any
+
+def tick_efeitos_inicio_turno(entidade: Any) -> int:
+    """
+    Função utilitária para aplicar efeitos no início do turno de uma entidade
+    (herói ou inimigo). Retorna o dano total aplicado neste tick (int).
+    Prioriza chamar entidade.inicio_turno() se existir (reuso).
+    Caso contrário, faz um fallback parecido com o inicio_turno do Personagem:
+    - processa chaves "<prefix>_turnos" e "<prefix>_dano"
+    - processa "regen" via "regen_valor"
+    - decrementa contadores e remove quando zeram
+    """
+    # Se a entidade já implementa a lógica, delega para ela
+    inicio_fn = getattr(entidade, "inicio_turno", None)
+    if callable(inicio_fn):
+        try:
+            return inicio_fn()
+        except Exception:
+            # se a implementação da entidade falhar por algum motivo,
+            # caímos no fallback abaixo
+            pass
+
+    # --- Fallback: processar efeitos manualmente ---
+    if not hasattr(entidade, "efeitos") or entidade.efeitos is None:
+        entidade.efeitos = {}
+
+    dano_total = 0
+    vida_max = getattr(getattr(entidade, "_atrib", None), "vida_max", None)
+
+    for chave in list(entidade.efeitos.keys()):
+        if chave == "turnos":
+            continue
+        if not chave.endswith("_turnos"):
+            continue
+
+        prefixo = chave[:-7]
+        contador = entidade.efeitos.get(chave, 0)
+
+        if contador <= 0:
+            entidade.efeitos.pop(chave, None)
+            entidade.efeitos.pop(f"{prefixo}_dano", None)
+            entidade.efeitos.pop(f"{prefixo}_curar", None)
+            continue
+
+        # aplica dano por tick se existir
+        dano_por_tick = entidade.efeitos.get(f"{prefixo}_dano")
+        if dano_por_tick:
+            if entidade.efeitos.get("invulneravel_turnos", 0) <= 0:
+                if hasattr(entidade, "receber_dano") and callable(entidade.receber_dano):
+                    aplicado = entidade.receber_dano(dano_por_tick)
+                else:
+                    atual = getattr(getattr(entidade, "_atrib", None), "vida", 0)
+                    # tentar setar vida diretamente
+                    try:
+                        nova = max(0, atual - dano_por_tick)
+                        setattr(entidade._atrib, "vida", nova)
+                        aplicado = atual - nova
+                    except Exception:
+                        aplicado = 0
+                dano_total += aplicado
+
+        # aplica cura por tick (regen)
+        curar_por_tick = entidade.efeitos.get(f"{prefixo}_curar")
+        if curar_por_tick is None and prefixo == "regen":
+            curar_por_tick = entidade.efeitos.get("regen_valor")
+
+        if curar_por_tick:
+            if hasattr(entidade, "curar") and callable(entidade.curar):
+                try:
+                    entidade.curar(curar_por_tick)
+                except Exception:
+                    atual = getattr(getattr(entidade, "_atrib", None), "vida", 0)
+                    try:
+                        nova = min(vida_max or atual, atual + curar_por_tick)
+                        setattr(entidade._atrib, "vida", nova)
+                    except Exception:
+                        pass
+            else:
+                atual = getattr(getattr(entidade, "_atrib", None), "vida", 0)
+                try:
+                    nova = min(vida_max or atual, atual + curar_por_tick)
+                    setattr(entidade._atrib, "vida", nova)
+                except Exception:
+                    pass
+
+        # decrementa contador
+        contador -= 1
+        if contador <= 0:
+            entidade.efeitos.pop(chave, None)
+            entidade.efeitos.pop(f"{prefixo}_dano", None)
+            entidade.efeitos.pop(f"{prefixo}_curar", None)
+            if prefixo == "regen":
+                entidade.efeitos.pop("regen_valor", None)
+        else:
+            entidade.efeitos[chave] = contador
+
+    # decrementa contadores especiais
+    for special in ("invulneravel_turnos", "nao_pode_atacar", "refletir_dano_turnos"):
+        if special in entidade.efeitos:
+            entidade.efeitos[special] = max(0, entidade.efeitos[special] - 1)
+            if entidade.efeitos[special] == 0:
+                entidade.efeitos.pop(special, None)
+
+    # normaliza vida
+    try:
+        vida_atual = getattr(entidade._atrib, "vida", 0)
+        if vida_atual < 0:
+            setattr(entidade._atrib, "vida", 0)
+        if vida_max is not None:
+            if getattr(entidade._atrib, "vida", 0) > vida_max:
+                setattr(entidade._atrib, "vida", vida_max)
+    except Exception:
+        pass
+
+    return dano_total
+
 
 
 @dataclass
@@ -13,7 +132,6 @@ class ResultadoMissao:
     detalhes: str = ""
 
 
-
 class MissaoHordas:
     def __init__(self, heroi: Personagem, cenario: str, dificuldade: str):
         self.heroi = heroi
@@ -21,7 +139,7 @@ class MissaoHordas:
         self.dificuldade = dificuldade
 
     # 4 habilidades por classe (além do ataque básico)
-    def _lista_especiais(self) -> list[tuple[int, str, int]]:
+    def _lista_especiais(self) -> List[Tuple[int, str, int]]:
         n = self.heroi.nivel
         base = {
             "Guerreiro": [
@@ -57,20 +175,21 @@ class MissaoHordas:
         if n >= 8: desbloq += 1
         return todos[:desbloq]
 
-class Missao:
+
+class Missao(MissaoHordas):
     """
-    Estrutura da missão sem a mecânica de combate.
-    Mantém a assinatura para futura integração com o jogo completo.
+    Estrutura da missão com mecânica de combate (refatorada).
     """
 
-    
     def __init__(self, inimigo: Inimigo, cenario: str, dificuldade: str, heroi: Personagem):
+        super().__init__(heroi,cenario, dificuldade)
         self.inimigo = inimigo
         self.cenario = cenario
         self.dificuldade = dificuldade
         self.heroi = heroi
 
-        self.missoes = [
+        # agora cada missão é um dict (nome + metadados futuros)
+        self.missoes: List[Dict] = [
             self.missao_1(),
             self.missao_2(),
             self.missao_3(),
@@ -79,17 +198,21 @@ class Missao:
         ]
         self.missao_atual = 0
 
+    # Retornando dicts para permitir evolução futura (recompensa, objetivo, etc.)
+    def missao_1(self) -> Dict:
+        return {"nome": "Matar Ladrões", "objetivo": "Eliminar ladrões no vilarejo", "recompensa": 50}
 
-    def missao_1(self)-> dict:
-        return "Matar Ladrões"
-    def missao_2(self)-> dict:
-        return "Matar Goblins"
-    def missao_3(self)-> dict:
-        return "Matar Golens"
-    def missao_4(self)-> dict:
-        return "Matar Elfos"
-    def missao_5(self)-> str:
-        return "Matar Dragões"
+    def missao_2(self) -> Dict:
+        return {"nome": "Matar Goblins", "objetivo": "Eliminar goblins na caverna", "recompensa": 75}
+
+    def missao_3(self) -> Dict:
+        return {"nome": "Matar Golens", "objetivo": "Destruir golens de pedra", "recompensa": 120}
+
+    def missao_4(self) -> Dict:
+        return {"nome": "Matar Elfos", "objetivo": "Conter elfos hostis", "recompensa": 150}
+
+    def missao_5(self) -> Dict:
+        return {"nome": "Matar Dragões", "objetivo": "Derrotar dragões ancestrais", "recompensa": 500}
 
     def _mostrar_hud(self, inimigo: Inimigo) -> None:
         mana_atual = getattr(self.heroi._atrib, "mana", 0)
@@ -109,10 +232,46 @@ class Missao:
                 print(f"[{i}] {nome} — custo {custo} (ficará: {mana_atual - custo})")
             else:
                 print(f"[{i}] {nome} — custo {custo} (insuficiente)")
-                print("[0] Fugir")
 
+        print("[0] Fugir")
 
-    def executar(self) -> ResultadoMissao:
+    # ----------------- Autoplay: heurística simples -----------------
+    def decidir_acao_auto(self, inimigo: Inimigo) -> str:
+        """
+        Retorna a ação a ser tomada automaticamente:
+        "1" = ataque básico, "2"/"3"/... = especiais, "0" = fugir (raro).
+        Heurística simples:
+         - Se Curandeiro e HP < 35% -> tenta curar (opção "2" por heurística)
+         - Se mana suficiente para alguma especial disponível -> usa a 1ª especial possível
+         - Senão, ataque básico
+        """
+        mana = getattr(self.heroi._atrib, "mana", 0)
+        vida_atual = getattr(self.heroi._atrib, "vida", 0)
+        vida_max = getattr(self.heroi._atrib, "vida_max", vida_atual) or vida_atual
+        hp_frac = vida_atual / vida_max if vida_max else 1.0
+
+        classe_nome = self.heroi.__class__.__name__
+
+        # Prioridade: Curandeiro cura quando crítico
+        if classe_nome == "Curandeiro" and hp_frac < 0.35:
+            # se tiver mana para especial 2 (heurística), tente 2
+            especs = self._lista_especiais()
+            # procurar uma especial com 'cura' heurística (aqui assumimos id 2 ou 3)
+            for i, (_id, nome, custo) in enumerate(especs):
+                if mana >= custo and _id in {1, 2, 3}:
+                    return str(2 + i)  # ação mapeada (2 + índice)
+
+        # Para outras classes: preferir especial se mana permitir (primeira que couber)
+        especs = self._lista_especiais()
+        for i, (_id, nome, custo) in enumerate(especs):
+            if mana >= custo and custo > 0:
+                return str(2 + i)
+
+        # fallback: ataque básico
+        return "1"
+
+    # ----------------- execução (com opção auto) -----------------
+    def executar(self, auto: bool = False) -> ResultadoMissao:
         print("\nIniciando missão...")
         print(f"Cenário: {self.cenario} | Dificuldade: {self.dificuldade}")
 
@@ -138,7 +297,12 @@ class Missao:
                     print(f"{self.heroi.nome} está impossibilitado de agir neste turno!")
                 else:
                     self._mostrar_hud(inimigo)
-                    acao = input("> ").strip()
+
+                    if auto:
+                        acao = self.decidir_acao_auto(inimigo)
+                        print(f"[AUTO] Escolha: {acao}")
+                    else:
+                        acao = input("> ").strip()
 
                     dano_causado = 0
                     bloqueado = False
@@ -168,19 +332,23 @@ class Missao:
                     elif acao in {"2", "3", "4", "5"} and not bloqueado:
                         esp_idx = int(acao) - 2
                         especs = self._lista_especiais()
-                        _id, nome, _c = especs[esp_idx]
-
-                        if isinstance(self.heroi, Curandeiro):
-                            if _id == 1:
-                                self.heroi.habilidade_especial(_id, aliados=[])
-                            elif _id == 2:
-                                self.heroi.habilidade_especial(_id, aliado=None)
-                            elif _id == 3:
-                                self.heroi.habilidade_especial(_id)
-                            elif _id == 4:
-                                dano_causado = self.heroi.habilidade_especial(4, alvo=inimigo)
+                        # proteção caso o jogador/auto escolha índice inválido
+                        if not (0 <= esp_idx < len(especs)):
+                            print("Especial inválida.")
                         else:
-                            dano_causado = self.heroi.habilidade_especial(_id, alvo=inimigo)
+                            _id, nome, _c = especs[esp_idx]
+                            # verificar Curandeiro por nome da classe para evitar import extra
+                            if self.heroi.__class__.__name__ == "Curandeiro":
+                                if _id == 1:
+                                    self.heroi.habilidade_especial(_id, aliados=[])
+                                elif _id == 2:
+                                    self.heroi.habilidade_especial(_id, aliado=None)
+                                elif _id == 3:
+                                    self.heroi.habilidade_especial(_id)
+                                elif _id == 4:
+                                    dano_causado = self.heroi.habilidade_especial(4, alvo=inimigo)
+                            else:
+                                dano_causado = self.heroi.habilidade_especial(_id, alvo=inimigo)
 
                     elif acao == "0":
                         print("Você recuou da missão!")
@@ -233,122 +401,3 @@ class Missao:
 
         print("\nParabéns! Você venceu todas as hordas da missão!")
         return ResultadoMissao(True, encontros_vencidos, "Vitória!")
-
-
-
-
-
-    """
-    # ======================== Missão com combate ============================
-    def _iniciar_missao_placeholder(self, inimigo=None) -> None:
-        self.logger.info("Iniciando a missão.")
-        if not self.personagem["nome"] or not self.personagem["arquetipo"]:
-            print("Crie um personagem antes de iniciar uma missão.")
-            return
-
-        # Cria inimigo se não informado
-        if inimigo is None:
-            inimigo = Inimigo.goblin()
-
-        # Pega os dados do personagem criado no menu
-        nome_arquetipo = self.personagem["arquetipo"]
-        nome_heroi = self.personagem["nome"]
-
-        heroi = self.mostrar_personagem(nome_arquetipo, nome_heroi)
-        engine = Missao(
-            inimigo= inimigo,
-            heroi=heroi,
-            cenario=self.missao_config['cenario'],
-            dificuldade=self.missao_config['dificuldade']
-        )
-
-
-
-
-        resultado = engine.executar()
-        # (opcional) usar resultado.venceu / resultado.encontros_vencidos / resultado.detalhes
-
-        print("\nIniciando missão...")
-        print(f"Cenário: {self.missao_config['cenario']} | Dificuldade: {self.missao_config['dificuldade']}")
-
-        heroi = self._mostrar_personagem()
-        inimigo = Inimigo.goblin()
-
-        turno = 1
-        while heroi.esta_vivo() and inimigo.esta_vivo():
-            print(f"\n=== Turno {turno} ===")
-
-            # Efeitos no início do turno do herói (veneno/eletro/etc.)
-            dano_tick_heroi = heroi.inicio_turno()
-            if dano_tick_heroi:
-                print(f"(Efeitos) {heroi.nome} sofre {dano_tick_heroi} de dano | {heroi.barra_hp()}")
-
-            if heroi.efeitos.get("nao_pode_atacar", 0) > 0:
-                print(f"{heroi.nome} está impossibilitado de agir neste turno!")
-            else:
-                # HUD com Mana + custos dos especiais (+ prévia)
-                self._mostrar_hud_turno(heroi, inimigo)
-                acao = input("> ").strip()
-
-                dano_causado = 0
-                bloqueado = False
-
-                # Bloqueio prévio para especiais (teclas 2..4) com mana insuficiente
-                if acao in {"2", "3", "4"}:
-                    esp_idx = int(acao) - 2  # 0,1,2
-                    especiais = self._lista_especiais(heroi)
-                    if 0 <= esp_idx < len(especiais):
-                        _, nome_esp, custo_esp = especiais[esp_idx]
-                        mana_atual = getattr(heroi._atrib, "mana", 0)
-                        if mana_atual < custo_esp:
-                            print(f"Mana insuficiente para {nome_esp} ({mana_atual}/{custo_esp}). Escolha outra ação.")
-                            bloqueado = True  # impede a execução do especial
-
-                # Execução das ações
-                if acao == "1":
-                    dano_causado = self._ataque_normal_com_d20(heroi, inimigo)
-                elif acao == "2" and not bloqueado:
-                    dano_causado = heroi.usar_especial(1, alvo=inimigo)
-                elif acao == "3" and not bloqueado:
-                    dano_causado = heroi.usar_especial(2, alvo=inimigo)
-                elif acao == "4" and not bloqueado:
-                    if isinstance(heroi, Personagem.Curandeiro):
-                        print("(Curandeiro esp3 cura aliados — ignorado no 1x1)")
-                        dano_causado = 0
-                    else:
-                        dano_causado = heroi.usar_especial(3, alvo=inimigo)
-                elif acao == "0":
-                    print("Você recuou da luta!")
-                    break
-                else:
-                    if not bloqueado:
-                        print("Ação inválida.")
-
-                if dano_causado:
-                    print(f"Você causou {dano_causado} de dano. HP do {inimigo.nome}: {inimigo.barra_hp()}")
-
-            if not inimigo.esta_vivo():
-                print(f"\n{inimigo.nome} foi derrotado!")
-                break
-
-            # Início do turno do inimigo — efeitos nele (veneno/eletro etc.)
-            dano_tick_ini = tick_efeitos_inicio_turno(inimigo)
-            if dano_tick_ini:
-                print(f"(Efeitos) {inimigo.nome} sofre {dano_tick_ini} de dano | {inimigo.barra_hp()}")
-            if not inimigo.esta_vivo():
-                print(f"\n{inimigo.nome} caiu pelos efeitos!")
-                break
-
-            if inimigo.efeitos.get("nao_pode_atacar", 0) > 0:
-                print(f"{inimigo.nome} está atordoado e não ataca.")
-            else:
-                # Ataque simples do inimigo: d6 + ataque - defesa do herói
-                dano_in = max(0, rolar_d6() + inimigo._atrib.ataque - heroi._atrib.defesa)
-                heroi.receber_dano(dano_in)
-                print(f"{inimigo.nome} ataca e causa {dano_in} de dano. Seu HP: {heroi.barra_hp()} (Mana: {getattr(heroi._atrib, 'mana', 0)})")
-
-            turno += 1
-
-        print("\nMissão finalizada (simulado). Retornando ao menu de Missão...")
-        """
-

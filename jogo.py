@@ -1,13 +1,14 @@
 from __future__ import annotations
-from utils.logger import Logger
 import json
 import os
-from utils.logger import logger
+
+from utils.logger import Logger
 from models.base import Atributos, Entidade
 from models.inimigo import Inimigo
 from models.personagem import Personagem, Entidade, Curandeiro, Arqueiro, Mago, Guerreiro
+from models.missao import MissaoHordas, Missao, ResultadoMissao
 from dado import rolar_d6, rolar_d20
-from models.missao import MissaoHordas, Missao
+
 
 class Jogo:
     """
@@ -23,6 +24,7 @@ class Jogo:
         
         self.logger = Logger()
         self.logger.info("Iniciando o jogo...")
+
         self.personagem = {
             "nome": None,
             "arquetipo": None,   # "Guerreiro", "Mago", "Arqueiro", "Curandeiro"
@@ -45,7 +47,7 @@ class Jogo:
         self._ultimo_save = None
         self._ultimo_load = None
 
-        #Caminho que é feito para os saves irem pra pasta saver
+        #Caminho que é feito para os saves irem pra pasta save
         self.save_dir = os.path.join(os.getcwd(), "saves")
         os.makedirs(self.save_dir, exist_ok=True) # garante que o diretório exista
 
@@ -162,10 +164,6 @@ class Jogo:
             print("Opção inválida. Arquétipo não alterado.")
             return None
 
-
-
-    #AQUI estou tentando fazer o personagem escolhido aparecer os atributos deles vida, manda e etc (não consegui ainda)
-
     def mostrar_personagem(self, nome_arquetipo: str | None = None, nome_heroi: str | None = None):
         """
         Cria e retorna um personagem do arquétipo escolhido, exibindo preview das estatísticas.
@@ -185,7 +183,7 @@ class Jogo:
                 print("Nenhum personagem criado ainda.")
                 return None
 
-        # Pega a classe do arquétipo
+        # Pega o arquétipo que foi escolhido pelo usuário
         classe_arquetipo = self.arquetipos.get(nome_arquetipo)
         if not classe_arquetipo:
             print("Arquétipo não encontrado.")
@@ -293,7 +291,12 @@ class Jogo:
         print("[2] Média")
         print("[3] Difícil")
         op = input("> ").strip()
-        mapa = {"1": "Fácil", "2": "Média", "3": "Difícil"}
+
+        mapa = {
+            "1": "Fácil",
+            "2": "Média",
+            "3": "Difícil"
+                }
         escolha = mapa.get(op)
         if escolha:
             self.missao_config["dificuldade"] = escolha
@@ -308,7 +311,13 @@ class Jogo:
         print("[3] Caverna")
         print("[4] Ruínas")
         op = input("> ").strip()
-        mapa = {"1": "Trilha", "2": "Floresta", "3": "Caverna", "4": "Ruínas"}
+
+        mapa = {
+            "1": "Trilha",
+            "2": "Floresta",
+            "3": "Caverna",
+            "4": "Ruínas"
+        }
         cen = mapa.get(op)
         if cen:
             self.missao_config["cenario"] = cen
@@ -376,7 +385,7 @@ class Jogo:
         
 
     def salvar_arquivo(self, nome_arquivo: str) -> None:
-        dados ={
+        dados = {
             "personagem": self.personagem,
             "missao_config": self.missao_config,
         }
@@ -462,3 +471,69 @@ class Jogo:
         print("\nAjuda — Carregar")
         print("- O carregamento aqui é apenas ilustrativo (sem leitura real).")
         print("- Use o nome que você “salvou” anteriormente para simular.")
+
+    def _iniciar_missao_placeholder(self, inimigo=None) -> None:
+        """
+        Inicia uma missão usando a engine Missao.
+        Baseado no placeholder que você tinha: cria inimigo padrão se não informado,
+        recupera o personagem criado no menu e executa a missão.
+        """
+        # verifica existência de personagem criado no menu
+        if not hasattr(self, "personagem") or not self.personagem.get("nome") or not self.personagem.get("arquetipo"):
+            print("Crie um personagem antes de iniciar uma missão.")
+            return
+
+        # cria inimigo padrão se não informado (assume que Inimigo.goblin() existe)
+        if inimigo is None:
+            try:
+                inimigo = Inimigo.goblin()
+            except Exception:
+                # fallback simples: instancia padrão se constructor direto existir
+                try:
+                    inimigo = Inimigo("Goblin", vida=10, ataque=2, defesa=0)
+                except Exception:
+                    print("Erro ao criar inimigo padrão. Verifique a classe Inimigo.")
+                    return
+
+        # obtém dados do personagem (assume que self.mostrar_personagem(arquetipo, nome) retorna um Personagem)
+        nome_arquetipo = self.personagem.get("arquetipo")
+        nome_heroi = self.personagem.get("nome")
+
+        try:
+            heroi = self.mostrar_personagem(nome_arquetipo, nome_heroi)
+        except Exception:
+            # se mostrar_personagem não existir ou falhar, tentar usar atributo direto
+            heroi = getattr(self, "heroi_atual", None) or getattr(self, "player", None)
+            if heroi is None:
+                print("Não foi possível recuperar o personagem. Verifique 'mostrar_personagem' ou a variável do herói.")
+                return
+
+        # pega configuração de missão (fallbacks seguros)
+        cenario = getattr(self, "missao_config", {}).get("cenario", "Caverna")
+        dificuldade = getattr(self, "missao_config", {}).get("dificuldade", "Fácil")
+
+        # instancia engine de missão e executa
+        try:
+            engine = Missao(inimigo=inimigo, heroi=heroi, cenario=cenario, dificuldade=dificuldade)
+        except Exception as e:
+            print("Erro ao criar engine de Missão:", e)
+            return
+
+        # executa em modo manual (auto=False). Se preferir autoplay, passe auto=True.
+        try:
+            resultado = engine.executar(auto=True)
+        except TypeError:
+            # caso sua versão de Missao.executar não aceite 'auto', chamar sem argumento
+            resultado = engine.executar()
+
+        # exibe resultado
+        if isinstance(resultado, ResultadoMissao):
+            if resultado.venceu:
+                print(f"Missão concluída! Encontros vencidos: {resultado.encontros_vencidos}")
+            else:
+                print(f"Missão falhou. Encontros vencidos: {resultado.encontros_vencidos} — {resultado.detalhes}")
+        else:
+            # resultado inesperado — apenas imprime
+            print("Resultado da missão:", resultado)
+
+
