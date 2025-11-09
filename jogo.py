@@ -1,7 +1,6 @@
 from __future__ import annotations
 import json
 import os
-
 from utils.logger import Logger
 from models.base import Atributos, Entidade
 from models.inimigo import Inimigo
@@ -54,9 +53,7 @@ class Jogo:
     # ======================================================================
     # Construção do herói a partir do arquétipo escolhido no menu
     # ======================================================================
-
     
-    # ======================================================================
     def _mostrar_hud_turno(self, heroi, inimigo) -> None:
         """Imprime HUD com HP/Mana e os especiais com custo/disponibilidade e prévia."""
         mana_atual = getattr(heroi._atrib, "mana", 0)

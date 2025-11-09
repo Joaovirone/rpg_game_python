@@ -1,29 +1,61 @@
 from personagem import Personagem
 from base import Entidade
 class Inventario:
-    def __init__(self):
+    def __init__(self, capacidade_maxima: int = 20):
         self.itens = []
+        self.capacidade_maxima = capacidade_maxima
 
     def adicionar_item(self, item):
-        self.itens.append(item)
+        if len(self.itens) < self.capacidade_maxima:
+            self.itens.append(item)
+            return True
+        return False
 
     def remover_item(self, item):
         if item in self.itens:
             self.itens.remove(item)
+            return True
+        return False
 
     def listar_itens(self):
         return self.itens
     
+    def listar_por_tipo(self, tipo: str):
+        """Lista todos os itens de um determinado tipo"""
+        return [item for item in self.itens if item.tipo.lower() == tipo.lower()]
+    
+    def listar_por_raridade(self, raridade: str):
+        """Lista todos os itens de uma determinada raridade"""
+        return [item for item in self.itens if item.raridade.lower() == raridade.lower()]
+    
+    def espaco_disponivel(self):
+        """Retorna a quantidade de espaços disponíveis no inventário"""
+        return self.capacidade_maxima - len(self.itens)
+    
+    def esta_cheio(self):
+        """Verifica se o inventário está cheio"""
+        return len(self.itens) >= self.capacidade_maxima
+    
 
 
 class Drop_rate:
+    RARIDADE_MODIFICADOR = {
+        "comum": 1.0,
+        "incomum": 0.7,
+        "raro": 0.4,
+        "épico": 0.2,
+        "lendário": 0.1
+    }
+
     def __init__(self, personagem: Personagem):
         self.personagem = personagem
 
-    def calcular_drop_rate(self):
+    def calcular_drop_rate(self, raridade: str = "comum"):
         base_rate = 0.1  # Taxa base de drop
         level_modifier = self.personagem.nivel * 0.01  # Modificador baseado no nível do personagem
-        drop_rate = base_rate + level_modifier
+        raridade_modifier = self.RARIDADE_MODIFICADOR.get(raridade.lower(), 1.0)
+        
+        drop_rate = (base_rate + level_modifier) * raridade_modifier
         return min(drop_rate, 0.5)  # Limita a taxa máxima de drop a 50%
 
 class Loot:
@@ -33,10 +65,35 @@ class Loot:
 
     def tentar_dropar_item(self, item):
         import random
-        if random.random() < self.drop_rate.calcular_drop_rate():
+        if random.random() < self.drop_rate.calcular_drop_rate(item.raridade):
             self.inventario.adicionar_item(item)
             return True
         return False
+
+    def gerar_loot_aleatorio(self, quantidade: int = 1):
+        """Gera uma quantidade específica de itens aleatórios com base na raridade"""
+        import random
+        itens_dropados = []
+        
+        for _ in range(quantidade):
+            # Escolhe um item aleatório da lista de itens disponíveis
+            item_base = random.choice(Item.items)
+            
+            # Cria uma nova instância do item
+            novo_item = Item(
+                nome=item_base["nome"],
+                tipo=item_base["tipo"],
+                valor=item_base["valor"],
+                raridade=item_base["raridade"],
+                dano=item_base.get("dano"),
+                defesa=item_base.get("defesa")
+            )
+            
+            # Tenta dropar o item
+            if self.tentar_dropar_item(novo_item):
+                itens_dropados.append(novo_item)
+        
+        return itens_dropados
 
 class Item:
     def __init__(self, nome: str, tipo: str, valor: int, raridade: str, dano: None, defesa: int = None):
