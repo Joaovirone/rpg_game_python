@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from .personagem import Personagem
 from .inimigo import Inimigo  # generate_horde
-from rpg_game_python.dado import rolar_d6, rolar_d20
+from rpg_game_python.dado import d6, d20
 from .horda import generate_horde
 from typing import List, Tuple, Dict
 from models.personagem import custo_ataque_basico, especiais_do_personagem, tick_efeitos_inicio_turno
@@ -380,7 +380,7 @@ class Missao(MissaoHordas):
                     print(f"{inimigo.nome} está atordoado e não ataca.")
                 else:
                     # NÃO subtrair defesa aqui; Entidade.receber_dano aplica defesa.
-                    dano_in = max(0, rolar_d6() + inimigo._atrib.ataque)
+                    dano_in = max(0, d6() + inimigo._atrib.ataque)
 
                     # Invulnerável anula dano direto (checado na missão)
                     if self.heroi.efeitos.get("invulneravel_turnos", 0) > 0:

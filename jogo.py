@@ -10,7 +10,7 @@ from models.personagem import (
     criar_personagem, mostrar_hud   # <-- HUD vem de models.personagem
 )
 from models.missao import MissaoHordas, Missao, ResultadoMissao
-from dado import rolar_d6, rolar_d20
+from dado import d6, d20
 
 
 class Jogo:
@@ -49,13 +49,13 @@ class Jogo:
     # Ataque normal com d20
     # ======================================================================
     def _ataque_normal_com_d20(self, heroi: Personagem, inimigo: Entidade) -> int:
-        r = rolar_d20()
+        r = d20()
         print(f"\n[d20] Você rolou: {r}")
         if 1 <= r <= 5:
             print("→ Ação PÉSSIMA: você erra o golpe. Sem dano.")
             return 0
 
-        base = rolar_d6() + heroi._atrib.ataque  # dano base físico
+        base = d6() + heroi._atrib.ataque  # dano base físico
         if 6 <= r <= 10:
             dano = base
             print(f"→ Ação NORMAL: dano base = {base}")
