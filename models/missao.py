@@ -5,6 +5,8 @@ from .inimigo import Inimigo  # generate_horde
 from rpg_game_python.dado import rolar_d6, rolar_d20
 from .horda import generate_horde
 from typing import List, Tuple, Dict
+from models.personagem import custo_ataque_basico, especiais_do_personagem, tick_efeitos_inicio_turno
+
 
 # colocar após os imports em models/missao.py
 from typing import Any
