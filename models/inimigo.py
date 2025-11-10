@@ -3,83 +3,82 @@ from typing import Callable, Dict, List, Optional, Union
 from .base import Entidade, Atributos
 import random
 
-
 class Inimigo(Entidade):
-    """Inimigo genérico.
-
-    Contém fábricas estáticas para tipos comuns. Cada fábrica retorna
-    uma nova instância de Inimigo para evitar compartilhamento de estado.
-    """
-
     def __init__(self, nome: str, vida: int, ataque: int, defesa: int):
-        super().__init__(nome, Atributos(vida=vida, ataque=ataque, defesa=defesa, vida_max=vida))
+        super().__init__(nome, Atributos(vida=vida, ataque=ataque, defesa=defesa, mana=0, vida_max=vida))
+        # efeitos usados pela engine/skills (podem começar zerados)
+        self.efeitos = {
+            "eletro_turnos": 0,
+            "veneno_turnos": 0, "veneno_dano": 2,
+            "sangramento_turnos": 0, "sangramento_tipo": None, "sangramento_dano": 0,
+            "marca_fatal_turnos": 0,
+            "semente_turnos": 0,
+            "nao_pode_atacar": 0,
+            "refletir_dano_turnos": 0,
+            "invulneravel_turnos": 0,
+            "critico_proximo": False,
+            "bonus_proximo": 0,
+        }
 
-    def esta_vivo(self) -> bool:
-        return self._atrib.vida > 0
+# --------- Tabelas de configuração ----------
+ENEMY_BASE_STATS: dict[str, tuple[int, int, int]] = {
+    # tipo: (vida, ataque, defesa)  -- valores base para NÃO chefes
+    "Goblin": (12, 3, 1),
+    "Orc": (20, 5, 2),
+    "Troll": (60, 7, 3),
 
-    @staticmethod
-    def ladrao() -> "Inimigo":
-        return Inimigo(nome="Ladrão", vida=15, ataque=10, defesa=10)
+    "Lobo Alterado": (14, 4, 1),
+    "Espírito": (16, 4, 2),
+    "Wendigo": (80, 8, 3),
 
-    @staticmethod
-    def goblin() -> "Inimigo":
-        return Inimigo(nome="Goblin", vida=20, ataque=10, defesa=5)
+    "Toupeira de Lodo": (15, 3, 2),
+    "Ungoliant": (22, 5, 2),
+    "Gollum": (70, 6, 3),
 
-    @staticmethod
-    def golem() -> "Inimigo":
-        return Inimigo(nome="Golem", vida=35, ataque=20, defesa=25)
-
-    @staticmethod
-    def elfo() -> "Inimigo":
-        return Inimigo(nome="Elfo", vida=15, ataque=10, defesa=10)
-
-    @staticmethod
-    def dragao() -> "Inimigo":
-        return Inimigo(nome="Dragão", vida=40, ataque=30, defesa=35)
-
-
-# Dicionário de fábricas: nome legível -> função que cria nova instância
-lista_inimigos: Dict[str, Callable[[], Inimigo]] = {
-    "Ladrão": Inimigo.ladrao,
-    "Goblin": Inimigo.goblin,
-    "Golem": Inimigo.golem,
-    "Elfo": Inimigo.elfo,
-    "Dragão": Inimigo.dragao,
+    "Cadáver de Guerreiro": (18, 4, 2),
+    "Ceifador": (22, 6, 2),
+    "Rei Amaldiçoado": (90, 9, 4),
 }
 
+SCENARIO_PLAN: dict[str, tuple[tuple[str, str], str]] = {
+    "Trilha":   (("Goblin", "Orc"), "Troll"),
+    "Floresta": (("Lobo Alterado", "Espírito"), "Wendigo"),
+    "Caverna":  (("Toupeira de Lodo", "Ungoliant"), "Gollum"),
+    "Ruínas":   (("Cadáver de Guerreiro", "Ceifador"), "Rei Amaldiçoado"),
+}
 
-def inimigo_aleatorio(count: int = 1, pool: Optional[Dict[str, Callable[[], Inimigo]]] = None, unique: bool = False) -> Union[Inimigo, List[Inimigo]]:
-    """Retorna um ou mais inimigos aleatórios.
+BOSS_HP_BY_DIFFICULTY: dict[str, int] = {
+    "Fácil": 100,
+    "Média": 300,
+    "Difícil": 500,
+}
 
-    Args:
-        count: número de inimigos a retornar. Se 1, retorna uma única instância.
-        pool: dicionário nome -> fábrica. Por padrão usa ENEMIGOS_FACTORIES.
-        unique: se True, garante inimigos com nomes distintos (erro se count > len(pool)).
+# qtd de minions por dificuldade: (qtd do minion1, qtd do minion2)
+MINION_COUNTS: dict[str, tuple[int, int]] = {
+    "Fácil": (2, 1),
+    "Média": (3, 2),
+    "Difícil": (4, 3),
+}
 
-    Retorna:
-        Uma instância de Inimigo quando count == 1, ou uma lista de instâncias quando count > 1.
-    """
-    if count < 1:
-        raise ValueError("count deve ser >= 1")
+# --------- Helpers públicos para a engine ----------
+def boss_hp(dificuldade: str) -> int:
+    return BOSS_HP_BY_DIFFICULTY.get(dificuldade, 100)
 
-    pool = pool or lista_inimigos
-    nomes = list(pool.keys())
+def plan_for_scenario(cenario: str) -> tuple[tuple[str, str], str]:
+    return SCENARIO_PLAN.get(cenario, (("Goblin", "Orc"), "Troll"))
 
-    if unique:
-        if count > len(nomes):
-            raise ValueError("count maior que número de inimigos únicos disponíveis no pool")
-        escolhidos = random.sample(nomes, count)
-    else:
-        escolhidos = [random.choice(nomes) for _ in range(count)]
+def create_enemy(tipo: str, dificuldade: str, boss: bool = False) -> Inimigo:
+    vida, atk, defe = ENEMY_BASE_STATS.get(tipo, (15, 4, 2))
+    if boss:
+        vida = boss_hp(dificuldade)
+    return Inimigo(tipo, vida, atk, defe)
 
-    instancias = [pool[n]() for n in escolhidos]
-    return instancias[0] if count == 1 else instancias
+def generate_horde(cenario: str, dificuldade: str) -> list[Inimigo]:
+    (m1, m2), chefe = plan_for_scenario(cenario)
+    qtd1, qtd2 = MINION_COUNTS.get(dificuldade, MINION_COUNTS["Fácil"])
+    fila: list[Inimigo] = []
+    fila += [create_enemy(m1, dificuldade) for _ in range(qtd1)]
+    fila += [create_enemy(m2, dificuldade) for _ in range(qtd2)]
+    fila += [create_enemy(chefe, dificuldade, boss=True)]
+    return fila
 
-
-def inimigos_para_dicionario(pool: Optional[Dict[str, Callable[[], Inimigo]]] = None) -> Dict[str, Inimigo]:
-    """Retorna um dicionário nome -> instância (fresh) para todas as fábricas no pool."""
-    pool = pool or lista_inimigos
-    return {nome: fabrica() for nome, fabrica in pool.items()}
-
-
-__all__ = ["Inimigo", "lista_inimigos", "inimigo_aleatorio", "inimigos_para_dicionario"]
