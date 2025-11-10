@@ -6,8 +6,8 @@ from utils.logger import Logger
 from models.base import Entidade
 from models.inimigo import Inimigo
 from models.personagem import (
-    Personagem, Guerreiro, Mago, Arqueiro, Curandeiro,
-    criar_personagem, mostrar_hud   # <-- HUD vem de models.personagem
+    Personagem,
+    criar_personagem, especiais_do_personagem, custo_ataque_basico
 )
 from models.missao import MissaoHordas, Missao, ResultadoMissao
 from dado import d6, d20
@@ -17,7 +17,9 @@ class Jogo:
     """
     Estrutura base com menus e submenus.
     - Coleta nome/arquétipo, mas NÃO cria o personagem aqui.
-    - A criação concreta é delegada a models.personagem (criar_personagem).
+    - A criação concreta é delegada a models.personagem.criar_personagem.
+    - O HUD do turno é LOCAL deste arquivo (função _mostrar_hud_turno) e
+      usa apenas helpers exportados por models.personagem.
     - Missões usam d20 para qualidade da ação e d6 para dano.
     """
 
@@ -25,44 +27,71 @@ class Jogo:
         self.logger = Logger()
         self.logger.info("Iniciando o jogo...")
 
-        self.personagem = {"nome": None, "arquetipo": None}
+        # Somente escolhas do jogador; nada de instanciar aqui.
+        self.personagem = {
+            "nome": None,         # str
+            "arquetipo": None,    # "Guerreiro" | "Mago" | "Arqueiro" | "Curandeiro"
+        }
 
         self.missao_config = {
             "dificuldade": None,  # "Fácil" | "Média" | "Difícil"
             "cenario": None,      # "Trilha" | "Floresta" | "Caverna" | "Ruínas"
-            "missao": None,       # rótulo da missão
+            "missao": None,       # rótulo da missão (se usar Missao*)
         }
 
         self._ultimo_save = None
         self._ultimo_load = None
 
+        # Pasta de saves
         self.save_dir = os.path.join(os.getcwd(), "saves")
         os.makedirs(self.save_dir, exist_ok=True)
 
     # ======================================================================
-    # HUD do turno (somente chama o HUD do módulo de personagem)
+    # HUD do turno (LOCAL; usa helpers do módulo de personagem)
     # ======================================================================
     def _mostrar_hud_turno(self, heroi: Personagem, inimigo: Entidade) -> None:
-        mostrar_hud(heroi, inimigo, indice_inicial=2)
+        mana_atual = getattr(heroi._atrib, "mana", 0)
+        print(f"HP {heroi.nome}: {heroi.barra_hp()}   |   Mana: {mana_atual}")
+        print(f"HP {inimigo.nome}: {inimigo.barra_hp()}")
+
+        # Ataque básico: custo por classe (helper)
+        custo_bas = custo_ataque_basico(heroi)
+        if mana_atual >= custo_bas:
+            print(f"[1] Ataque normal (d20) — custo {custo_bas} (ficará: {mana_atual - custo_bas})")
+        else:
+            print(f"[1] Ataque normal (d20) — custo {custo_bas} (insuficiente)")
+
+        # Especiais (até 7, destravados por nível; nomes/custos vindos do helper)
+        especiais = especiais_do_personagem(heroi, considerar_nivel=True)
+        for i, (_esp_id, nome, custo) in enumerate(especiais, start=2):
+            if mana_atual >= custo:
+                print(f"[{i}] {nome} — custo {custo} (ficará: {mana_atual - custo})")
+            else:
+                print(f"[{i}] {nome} — custo {custo} (insuficiente)")
+        print("[0] Fugir")
 
     # ======================================================================
-    # Ataque normal com d20
+    # Ataque normal com d20 para decidir a qualidade da ação
+    # 1–5: péssima (erra) | 6–10: normal | 11–15: boa (+1) | 16–20: excelente (crítico)
     # ======================================================================
     def _ataque_normal_com_d20(self, heroi: Personagem, inimigo: Entidade) -> int:
         r = d20()
         print(f"\n[d20] Você rolou: {r}")
+
         if 1 <= r <= 5:
             print("→ Ação PÉSSIMA: você erra o golpe. Sem dano.")
             return 0
 
-        base = d6() + heroi._atrib.ataque  # dano base físico
+        # dano base físico: 1d6 + ataque do herói (a lógica detalhada vive no Personagem)
+        base = d6() + heroi._atrib.ataque
+
         if 6 <= r <= 10:
             dano = base
             print(f"→ Ação NORMAL: dano base = {base}")
         elif 11 <= r <= 15:
             dano = base + 1
             print(f"→ Ação BOA: {base} + 1 = {dano}")
-        else:
+        else:  # 16–20
             dano = base * 2
             print(f"→ Ação EXCELENTE (crítico): {base} x 2 = {dano}")
 
@@ -114,6 +143,7 @@ class Jogo:
         print("[4] Curandeiro")
         print("[5] Personalizado (usa Guerreiro por padrão)")
         escolha = input("> ").strip()
+
         mapa = {"1": "Guerreiro", "2": "Mago", "3": "Arqueiro", "4": "Curandeiro", "5": "Personalizado"}
         arq = mapa.get(escolha)
         if arq:
@@ -123,12 +153,18 @@ class Jogo:
             print("Opção inválida. Arquétipo não alterado.")
 
     def _confirmar_criacao(self) -> None:
+        """
+        Aqui NÃO criamos o personagem. Apenas validamos escolhas.
+        A criação concreta ocorrerá somente quando a missão iniciar,
+        delegada a models.personagem.criar_personagem(...).
+        """
         if not self.personagem["nome"]:
             print("Defina um nome antes de confirmar a criação.")
             return
         if not self.personagem["arquetipo"]:
             print("Escolha um arquétipo antes de confirmar a criação.")
             return
+
         print("\nPersonagem configurado!")
         print(f"Nome: {self.personagem['nome']} | Arquétipo: {self.personagem['arquetipo']}")
         print("(Obs.: a instância será criada apenas ao iniciar a missão.)")
@@ -137,6 +173,7 @@ class Jogo:
         print("\nAjuda — Criar Personagem")
         print("- Defina um nome e um arquétipo.")
         print("- O jogo NÃO cria a instância aqui; isso só acontece ao iniciar a missão.")
+        print("- As classes têm atributos/habilidades diferentes (definidos em models.personagem).")
 
     # ================================ MISSÃO ===============================
 
@@ -181,6 +218,7 @@ class Jogo:
         print("[4] Eliminar Elfo")
         print("[5] Eliminar Dragão")
         op = input("> ").strip()
+        # Se Missao.missao_X retorna rótulo/objeto de missão:
         mapa = {
             "1": Missao.missao_1(self),
             "2": Missao.missao_2(self),
@@ -227,12 +265,13 @@ class Jogo:
         print(f"- Dificuldade: {self.missao_config['dificuldade'] or '(não definida)'}")
         print(f"- Cenário:     {self.missao_config['cenario'] or '(não definido)'}")
         print("- Hordas e chefe serão gerados conforme cenário e dificuldade.")
+        print("  (A lógica fica em missão.py/inimigo.py; o herói é criado só ao iniciar.)")
 
     def _ajuda_missao(self) -> None:
         print("\nAjuda — Missão")
         print("- Em 'Iniciar missão', o ataque normal usa d20 para decidir a qualidade:")
         print("  1–5: péssima (erra), 6–10: normal, 11–15: boa (+1), 16–20: excelente (crítico).")
-        print("- O HUD mostra Mana, custos e bloqueia habilidades por nível/mana.")
+        print("- O HUD (local do jogo.py) mostra Mana e o custo dos especiais (bloqueia sem mana).")
 
     # ========================= SALVAR/CARREGAR ==============================
 
@@ -354,17 +393,23 @@ class Jogo:
     # ========================= INICIAR MISSÃO ==============================
 
     def _iniciar_missao_placeholder(self, inimigo: Entidade | None = None) -> None:
+        """
+        Inicia a missão de combate.
+        ATENÇÃO: A criação do personagem é delegada a models.personagem.criar_personagem(...).
+        Aqui apenas passamos as escolhas (nome/arquétipo) e usamos o retorno.
+        """
         if not self.personagem.get("nome") or not self.personagem.get("arquetipo"):
             print("Crie/configure um personagem antes de iniciar uma missão.")
             return
 
+        # Inimigo padrão, caso nenhum tenha sido passado
         if inimigo is None:
             try:
-                inimigo = Inimigo.goblin()
+                inimigo = Inimigo.goblin()  # se seu Inimigo tiver fábrica
             except Exception:
                 inimigo = Inimigo("Goblin", vida=10, ataque=2, defesa=0)
 
-        # instância do herói é criada FORA do jogo.py (no módulo de personagem)
+        # >>> ÚNICO ponto onde a instância do herói é obtida (fora do jogo.py)
         heroi = criar_personagem(self.personagem["arquetipo"], self.personagem["nome"])
 
         cenario = (self.missao_config.get("cenario") or "Caverna")
@@ -376,6 +421,7 @@ class Jogo:
             print("Erro ao criar engine de Missão:", e)
             return
 
+        # Executa a missão (se sua engine aceitar 'auto', passe conforme desejar)
         try:
             resultado = engine.executar(auto=True)
         except TypeError:
