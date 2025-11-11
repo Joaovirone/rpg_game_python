@@ -9,9 +9,8 @@ from models.personagem import (
     custo_ataque_basico,          # custo do ataque básico por classe
     tick_efeitos_inicio_turno,    # aplica efeitos (fonte única)
 )
-from models.inimigo import Inimigo
+from models.inimigo import Inimigo, generate_horde
 from dado import  d6
-from .horda import generate_horde
 
 
 @dataclass
@@ -89,13 +88,21 @@ class MissaoHordas:
 
     # ----------------- Execução (com auto) -----------------
     def executar(self, auto: bool = False) -> ResultadoMissao:
+        encontros_vencidos = 0
         print("\nIniciando missão...")
         print(f"Cenário: {self.cenario} | Dificuldade: {self.dificuldade}")
 
-        horda = generate_horde(self.cenario, self.dificuldade)
-        encontros_vencidos = 0
+        try:
+            horda = generate_horde(self.cenario, self.dificuldade, getattr(self, "missao", None))
+            encontros_vencidos = 0
+        except TypeError:
+            # Versão que aceita apenas (cenario, dificuldade)
+            horda = generate_horde(self.cenario, self.dificuldade)
 
         for idx, inimigo in enumerate(horda, start=1):
+
+            is_boss = getattr(inimigo, "efeitos", {}).get("is_boss", False)
+            titulo = f"{inimigo.nome} (CHEFE)" if is_boss else inimigo.nome
             print(f"\n=== Encontro {idx}/{len(horda)} — {inimigo.nome} ===")
             turno = 1
 

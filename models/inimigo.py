@@ -21,8 +21,11 @@ class Inimigo(Entidade):
         }
 
 # --------- Tabelas de configuração ----------
+
+# Dicionário de Inimigos
 ENEMY_BASE_STATS: dict[str, tuple[int, int, int]] = {
     # tipo: (vida, ataque, defesa)  -- valores base para NÃO chefes
+
     "Goblin": (12, 3, 1),
     "Orc": (20, 5, 2),
     "Troll": (60, 7, 3),
@@ -40,6 +43,7 @@ ENEMY_BASE_STATS: dict[str, tuple[int, int, int]] = {
     "Rei Amaldiçoado": (90, 9, 4),
 }
 
+#Cenário e planejamento
 SCENARIO_PLAN: dict[str, tuple[tuple[str, str], str]] = {
     "Trilha":   (("Goblin", "Orc"), "Troll"),
     "Floresta": (("Lobo Alterado", "Espírito"), "Wendigo"),
@@ -47,13 +51,14 @@ SCENARIO_PLAN: dict[str, tuple[tuple[str, str], str]] = {
     "Ruínas":   (("Cadáver de Guerreiro", "Ceifador"), "Rei Amaldiçoado"),
 }
 
+#hp do chefe de acordo com a dificuldade
 BOSS_HP_BY_DIFFICULTY: dict[str, int] = {
     "Fácil": 100,
     "Média": 300,
     "Difícil": 500,
 }
 
-# qtd de minions por dificuldade: (qtd do minion1, qtd do minion2)
+# qtd de minions por dificuldade: (qtd do minion 1,qtd do minion 2 )
 MINION_COUNTS: dict[str, tuple[int, int]] = {
     "Fácil": (2, 1),
     "Média": (3, 2),
@@ -61,24 +66,41 @@ MINION_COUNTS: dict[str, tuple[int, int]] = {
 }
 
 # --------- Helpers públicos para a engine ----------
-def boss_hp(dificuldade: str) -> int:
+def hp_boss_chef(dificuldade: str) -> int:
+    """
+    Retorna HP do Chef de acordo com a dificuldade
+    """
     return BOSS_HP_BY_DIFFICULTY.get(dificuldade, 100)
 
 def plan_for_scenario(cenario: str) -> tuple[tuple[str, str], str]:
+    """
+    Retorna a configuração dos inimigos de acordo com o cenário escolhido
+    """
     return SCENARIO_PLAN.get(cenario, (("Goblin", "Orc"), "Troll"))
 
-def create_enemy(tipo: str, dificuldade: str, boss: bool = False) -> Inimigo:
+def criar_inimigo(tipo: str, dificuldade: str, boss: bool = False) -> Inimigo:
+    """
+    Cria um Inimigo com stats base; se for boss, usa HP escalado pela dificuldade
+    """
     vida, atk, defe = ENEMY_BASE_STATS.get(tipo, (15, 4, 2))
     if boss:
-        vida = boss_hp(dificuldade)
-    return Inimigo(tipo, vida, atk, defe)
+        vida = hp_boss_chef(dificuldade)
+    inimigo = Inimigo(tipo, vida, atk, defe)
+
+    if boss and hasattr(inimigo, "efeitos"):
+        inimigo.efeitos["is_boss"] = True
+
+    return inimigo
 
 def generate_horde(cenario: str, dificuldade: str) -> list[Inimigo]:
+    """
+    Monta a fila/horda: minions do tipo1, minions do tipo2, e por fim o chefe.
+    """
     (m1, m2), chefe = plan_for_scenario(cenario)
     qtd1, qtd2 = MINION_COUNTS.get(dificuldade, MINION_COUNTS["Fácil"])
     fila: list[Inimigo] = []
-    fila += [create_enemy(m1, dificuldade) for _ in range(qtd1)]
-    fila += [create_enemy(m2, dificuldade) for _ in range(qtd2)]
-    fila += [create_enemy(chefe, dificuldade, boss=True)]
+    fila += [criar_inimigo(m1, dificuldade) for _ in range(qtd1)]
+    fila += [criar_inimigo(m2, dificuldade) for _ in range(qtd2)]
+    fila += [criar_inimigo(chefe, dificuldade, boss=True)] # enfrentar chefao após os minions
     return fila
 
