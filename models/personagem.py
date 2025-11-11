@@ -1,10 +1,29 @@
 # models/personagem.py
 from __future__ import annotations
 from typing import Optional, List, Dict
-from dado import  d6, d20
+from dado import d6, d20, rolar_multiplos_dados, somar_dados
+from utils.logger import logger
 from .base import Atributos, Entidade  # mantém compat: from models.personagem import Entidade
 
 # ========================== EFEITOS / TICKS ===============================
+
+def log_efeito_aplicado(alvo: Entidade, efeito: str, duracao: int = 0) -> None:
+    """Loga a aplicação de efeitos em entidades."""
+    logger.info(f"💫 {efeito} aplicado em {alvo.nome}" + (f" por {duracao} turnos" if duracao > 0 else ""))
+
+def log_dano_causado(atacante: Entidade, alvo: Entidade, dano: int, habilidade: str = "") -> None:
+    """Loga o dano causado em combate."""
+    if habilidade:
+        logger.info(f"⚔️ {atacante.nome} usa {habilidade} em {alvo.nome}: {dano} de dano")
+    else:
+        logger.info(f"⚔️ {atacante.nome} ataca {alvo.nome}: {dano} de dano")
+
+def log_cura_realizada(curandeiro: Entidade, alvo: Entidade, cura: int, habilidade: str = "") -> None:
+    """Loga ações de cura."""
+    if habilidade:
+        logger.info(f"✨ {curandeiro.nome} usa {habilidade} em {alvo.nome}: +{cura} de vida")
+    else:
+        logger.info(f"✨ {curandeiro.nome} cura {alvo.nome}: +{cura} de vida")
 
 def tick_efeitos_inicio_turno(alvo: Entidade) -> int:
     """
@@ -20,35 +39,53 @@ def tick_efeitos_inicio_turno(alvo: Entidade) -> int:
     # Eletrocussão: 1d6-1 por turno
     if alvo.efeitos.get("eletro_turnos", 0) > 0:
         if not inv:
-            total += alvo.receber_dano(max(0, d6() - 1))
+            dano_eletro = max(0, d6("Eletrocussão - Dano por Turno") - 1)
+            total += alvo.receber_dano(dano_eletro)
+            logger.info(f"⚡ Eletrocussão em {alvo.nome}: {dano_eletro} de dano")
         alvo.efeitos["eletro_turnos"] -= 1
 
     # Veneno: dano fixo (default 2)
     if alvo.efeitos.get("veneno_turnos", 0) > 0:
         if not inv:
-            total += alvo.receber_dano(max(0, alvo.efeitos.get("veneno_dano", 2)))
+            dano_veneno = max(0, alvo.efeitos.get("veneno_dano", 2))
+            total += alvo.receber_dano(dano_veneno)
+            logger.info(f"☠️ Veneno em {alvo.nome}: {dano_veneno} de dano")
         alvo.efeitos["veneno_turnos"] -= 1
 
     # Sangramento: tipo "d6" (rola 1d6/turno) ou fixo
     if alvo.efeitos.get("sangramento_turnos", 0) > 0:
         if not inv:
-            dano = d6() if alvo.efeitos.get("sangramento_tipo") == "d6" else max(0, alvo.efeitos.get("sangramento_dano", 1))
-            total += alvo.receber_dano(dano)
+            if alvo.efeitos.get("sangramento_tipo") == "d6":
+                dano_sangramento = d6("Sangramento - Dano por Turno")
+            else:
+                dano_sangramento = max(0, alvo.efeitos.get("sangramento_dano", 1))
+            total += alvo.receber_dano(dano_sangramento)
+            logger.info(f"🩸 Sangramento em {alvo.nome}: {dano_sangramento} de dano")
         alvo.efeitos["sangramento_turnos"] -= 1
 
     # Marca Fatal: 1d6 por turno
     if alvo.efeitos.get("marca_fatal_turnos", 0) > 0:
         if not inv:
-            total += alvo.receber_dano(d6())
+            dano_marca = d6("Marca Fatal - Dano por Turno")
+            total += alvo.receber_dano(dano_marca)
+            logger.info(f"🎯 Marca Fatal em {alvo.nome}: {dano_marca} de dano")
         alvo.efeitos["marca_fatal_turnos"] -= 1
 
     # Semente Engatilhada: quando zera, cura 1d20-5
     if alvo.efeitos.get("semente_turnos", 0) > 0:
         alvo.efeitos["semente_turnos"] -= 1
         if alvo.efeitos["semente_turnos"] == 0 and hasattr(alvo, "curar"):
-            alvo.curar(max(0, d20() - 5))
+            cura_semente = max(0, d20("Semente Engatilhada - Cura") - 5)
+            alvo.curar(cura_semente)
+            logger.info(f"🌱 Semente Engatilhada ativa em {alvo.nome}: +{cura_semente} de vida")
 
-    # Contadores “não-dano”
+    # Log de efeitos que estão terminando
+    for efeito, turnos in list(alvo.efeitos.items()):
+        if isinstance(turnos, int) and turnos == 1:  # Último turno
+            if "turnos" in efeito and efeito != "turnos":
+                logger.info(f"⏰ {efeito.replace('_turnos', '').title()} está prestes a terminar em {alvo.nome}")
+
+    # Contadores "não-dano"
     for k in ("nao_pode_atacar", "refletir_dano_turnos", "invulneravel_turnos"):
         if alvo.efeitos.get(k, 0) > 0:
             alvo.efeitos[k] -= 1
@@ -75,6 +112,7 @@ def aplicar_buffs_de_ataque(user: "Personagem", dano_base: int) -> int:
     if user.efeitos.get("critico_proximo"):
         dano *= 2
         user.efeitos["critico_proximo"] = False
+        logger.info(f"🎯 Crítico aplicado! Dano dobrado: {dano}")
     return max(0, dano)
 
 # =============================== PERSONAGEM ===============================
@@ -119,23 +157,28 @@ class Personagem(Entidade):
         ant = self._atrib.vida
         vmax = self._atrib.vida_max or self._atrib.vida
         self._atrib.vida = min(vmax, self._atrib.vida + max(0, int(qtd)))
-        return self._atrib.vida - ant
+        curado = self._atrib.vida - ant
+        if curado > 0:
+            logger.info(f"❤️ {self.nome} cura {curado} de vida")
+        return curado
 
     def gastar_mana(self, custo: int) -> bool:
         if custo <= 0:
             return True
         atual = getattr(self._atrib, "mana", 0)
         if atual < custo:
-            print(f"{self.nome} não tem mana suficiente ({atual}/{custo}).")
+            logger.warning(f"🔮 {self.nome} não tem mana suficiente ({atual}/{custo}).")
             return False
         self._atrib.mana = atual - custo
+        logger.debug(f"🔮 {self.nome} gasta {custo} de mana (restante: {self._atrib.mana})")
         return True
 
     def calcular_dano_base(self) -> int:
         """Dano físico base: 1d6 + ataque (+ buffs/crítico do próximo ataque)."""
         if self.efeitos.get("nao_pode_atacar", 0) > 0:
+            logger.warning(f"🚫 {self.nome} está impossibilitado de atacar!")
             return 0
-        bruto = d6() + self._atrib.ataque
+        bruto = d6("Ataque Básico - Dano Base") + self._atrib.ataque
         return aplicar_buffs_de_ataque(self, bruto)
 
     # -------- XP (nível máx. 10) --------
@@ -149,6 +192,8 @@ class Personagem(Entidade):
             return logs
 
         self.xp += qtd
+        logger.info(f"📈 {self.nome} ganhou {qtd} XP (Total: {self.xp}/{self._xp_para_proximo()})")
+        
         while self.nivel < 10 and self.xp >= self._xp_para_proximo():
             self.xp -= self._xp_para_proximo()
             self.nivel += 1
@@ -162,12 +207,15 @@ class Personagem(Entidade):
 
             if self.nivel in (2, 4, 6):
                 logs.append(f"Subiu para o nível {self.nivel}! Nova habilidade desbloqueada.")
+                logger.info(f"🎉 {self.nome} alcançou nível {self.nivel}! Nova habilidade desbloqueada!")
             else:
                 logs.append(f"Subiu para o nível {self.nivel}!")
+                logger.info(f"🎉 {self.nome} alcançou nível {self.nivel}!")
 
         if self.nivel >= 10:
             self.xp = 0
             logs.append("Nível máximo atingido (10).")
+            logger.info(f"🏆 {self.nome} atingiu o nível máximo (10)!")
         return logs
 
 # =============================== GUERREIRO ================================
@@ -181,18 +229,22 @@ class Guerreiro(Personagem):
     def ataque_basico(self, alvo: Entidade) -> int:
         if not self.gastar_mana(0):
             return 0
-        return alvo.receber_dano(d6() + self._atrib.ataque)
+        dano = d6("Guerreiro - Ataque Básico") + self._atrib.ataque
+        log_dano_causado(self, alvo, dano, "Ataque Básico")
+        return alvo.receber_dano(dano)
 
     # 4 ORIGINAIS (nível 1)
     def esp_execucao_publica(self, alvo: Entidade) -> int:
         # 7 mana | 5d6, crítico garantido +3; só após 4 turnos
         if self.efeitos.get("turnos", 0) < 4:
-            print("Execução Pública só após 4 turnos.")
+            logger.warning("Execução Pública só após 4 turnos.")
             return 0
         if not self.gastar_mana(7):
             return 0
-        dano = sum(d6() for _ in range(5))
+        dano = somar_dados(5, 6, "Execução Pública - Dano")
         dano = dano * 2 + 3
+        logger.info(f"🎯 Execução Pública - Crítico garantido +3!")
+        log_dano_causado(self, alvo, dano, "Execução Pública")
         return alvo.receber_dano(dano)
 
     def esp_perseveranca(self) -> int:
@@ -200,41 +252,47 @@ class Guerreiro(Personagem):
         if not self.gastar_mana(0):
             return 0
         self.efeitos["invulneravel_turnos"] = max(self.efeitos.get("invulneravel_turnos", 0), 1)
-        print(f"{self.nome} está impenetrável por 1 turno.")
+        logger.info(f"🛡️ {self.nome} está impenetrável por 1 turno.")
         return 0
 
     def esp_golpe_trovejante(self, alvo: Entidade) -> int:
         # 1 mana | 1d20 + ataque
         if not self.gastar_mana(1):
             return 0
-        return alvo.receber_dano(d20() + self._atrib.ataque)
+        resultado_d20 = d20("Golpe Trovejante")
+        dano = resultado_d20 + self._atrib.ataque
+        log_dano_causado(self, alvo, dano, "Golpe Trovejante")
+        return alvo.receber_dano(dano)
 
     def esp_lamina_infera(self, alvo: Entidade) -> int:
         # 2 mana | 3d6 + sangramento (1d6) por 2 turnos
         if not self.gastar_mana(2):
             return 0
-        dano = sum(d6() for _ in range(3))
+        dano_dados = somar_dados(3, 6, "Lâmina Ínfera - Dano")
         if hasattr(alvo, "efeitos"):
             alvo.efeitos["sangramento_turnos"] = max(alvo.efeitos.get("sangramento_turnos", 0), 2)
             alvo.efeitos["sangramento_tipo"] = "d6"
-        return alvo.receber_dano(dano)
+            log_efeito_aplicado(alvo, "Sangramento", 2)
+        log_dano_causado(self, alvo, dano_dados, "Lâmina Ínfera")
+        return alvo.receber_dano(dano_dados)
 
     # 3 ADICIONAIS (desbloqueiam 2,4,6)
     def esp_duro_na_queda(self) -> int:
         # 0 mana | +1d6 no PRÓXIMO ataque
         if not self.gastar_mana(0):
             return 0
-        self.efeitos["bonus_proximo"] = self.efeitos.get("bonus_proximo", 0) + d6()
-        print(f"{self.nome} ativa Duro na Queda: +1d6 no próximo ataque.")
+        bonus = d6("Duro na Queda - Bônus")
+        self.efeitos["bonus_proximo"] = self.efeitos.get("bonus_proximo", 0) + bonus
+        logger.info(f"💪 {self.nome} ativa Duro na Queda: +{bonus} no próximo ataque.")
         return 0
 
     def esp_determinacao_mortal(self) -> int:
         # 2 mana | cura 1d20
         if not self.gastar_mana(2):
             return 0
-        cura = d20()
+        cura = d20("Determinação Mortal - Cura")
         self.curar(cura)
-        print(f"{self.nome} usa Determinação Mortal e cura {cura}.")
+        logger.info(f"❤️ {self.nome} usa Determinação Mortal e cura {cura}.")
         return 0
 
     def esp_golpe_estilhacador(self) -> int:
@@ -242,7 +300,7 @@ class Guerreiro(Personagem):
         if not self.gastar_mana(0):
             return 0
         self.efeitos["critico_proximo"] = True
-        print(f"{self.nome} prepara Golpe Estilhaçador (próximo ataque crítico).")
+        logger.info(f"🔪 {self.nome} prepara Golpe Estilhaçador (próximo ataque crítico).")
         return 0
 
     def usar_especial(self, n: int, alvo: Optional[Entidade] = None, **kwargs) -> int:
@@ -266,65 +324,80 @@ class Mago(Personagem):
         # 1 mana | 1d6 + ataque
         if not self.gastar_mana(1):
             return 0
-        return alvo.receber_dano(d6() + self._atrib.ataque)
+        dano = d6("Mago - Ataque Básico") + self._atrib.ataque
+        log_dano_causado(self, alvo, dano, "Ataque Básico")
+        return alvo.receber_dano(dano)
 
     # 4 ORIGINAIS
     def esp_colapso_minguante(self, alvo: Entidade) -> int:
         # 15 mana | 6d6
         if not self.gastar_mana(15):
             return 0
-        return alvo.receber_dano(sum(d6() for _ in range(6)))
+        dano = somar_dados(6, 6, "Colapso Minguante - Dano")
+        log_dano_causado(self, alvo, dano, "Colapso Minguante")
+        return alvo.receber_dano(dano)
 
     def esp_descarnar(self, alvo: Entidade) -> int:
         # 20 mana | 3d20 + sangramento (1d6) por 2 turnos
         if not self.gastar_mana(20):
             return 0
-        dano = sum(d20() for _ in range(3))
+        dano = somar_dados(3, 20, "Descarnar - Dano")
         if hasattr(alvo, "efeitos"):
             alvo.efeitos["sangramento_turnos"] = max(alvo.efeitos.get("sangramento_turnos", 0), 2)
             alvo.efeitos["sangramento_tipo"] = "d6"
+            log_efeito_aplicado(alvo, "Sangramento", 2)
+        log_dano_causado(self, alvo, dano, "Descarnar")
         return alvo.receber_dano(dano)
 
     def esp_distorcao_no_tempo(self) -> int:
         # 0 mana | recupera 50 mana
         self._atrib.mana += 50
-        print(f"{self.nome} recupera 50 de mana.")
+        logger.info(f"🔮 {self.nome} recupera 50 de mana.")
         return 0
 
     def esp_empurrao_sismico(self, alvo: Entidade) -> int:
         # 8 mana | 3d6 + alvo perde 1 turno (uma única vez por missão)
         if self.efeitos.get("empurrao_sismico_usado"):
-            print("Empurrão Sísmico só pode ser usado uma vez por missão.")
+            logger.warning("Empurrão Sísmico só pode ser usado uma vez por missão.")
             return 0
         if not self.gastar_mana(8):
             return 0
+        dano = somar_dados(3, 6, "Empurrão Sísmico - Dano")
         if hasattr(alvo, "efeitos"):
             alvo.efeitos["nao_pode_atacar"] = alvo.efeitos.get("nao_pode_atacar", 0) + 1
+            log_efeito_aplicado(alvo, "Atordoado", 1)
         self.efeitos["empurrao_sismico_usado"] = True
-        return alvo.receber_dano(sum(d6() for _ in range(3)))
+        log_dano_causado(self, alvo, dano, "Empurrão Sísmico")
+        return alvo.receber_dano(dano)
 
     # 3 ADICIONAIS
     def esp_paradoxo(self, alvo: Entidade) -> int:
         # 3 mana | 5d6
         if not self.gastar_mana(3):
             return 0
-        return alvo.receber_dano(sum(d6() for _ in range(5)))
+        dano = somar_dados(5, 6, "Paradoxo - Dano")
+        log_dano_causado(self, alvo, dano, "Paradoxo")
+        return alvo.receber_dano(dano)
 
     def esp_eletrocussao(self, alvo: Entidade) -> int:
         # 2 mana | 3d6 + DoT 1d6-1 por 2 turnos
         if not self.gastar_mana(2):
             return 0
-        dano = sum(d6() for _ in range(3))
+        dano = somar_dados(3, 6, "Eletrocussão - Dano Inicial")
         if hasattr(alvo, "efeitos"):
             alvo.efeitos["eletro_turnos"] = alvo.efeitos.get("eletro_turnos", 0) + 2
+            log_efeito_aplicado(alvo, "Eletrocussão", 2)
+        log_dano_causado(self, alvo, dano, "Eletrocussão")
         return alvo.receber_dano(dano)
 
     def esp_explosao_florescente(self, alvo: Entidade) -> int:
         # 8 mana | 10d6 e NÃO age no próximo turno
         if not self.gastar_mana(8):
             return 0
-        total = sum(d6() for _ in range(10))
+        total = somar_dados(10, 6, "Explosão Florescente - Dano")
         self.efeitos["nao_pode_atacar"] = self.efeitos.get("nao_pode_atacar", 0) + 1
+        logger.warning(f"💥 {self.nome} não poderá agir no próximo turno!")
+        log_dano_causado(self, alvo, total, "Explosão Florescente")
         return alvo.receber_dano(total)
 
     def usar_especial(self, n: int, alvo: Optional[Entidade] = None, **kwargs) -> int:
@@ -350,15 +423,22 @@ class Arqueiro(Personagem):
             return 0
         if self.efeitos.get("prox_flecha_d20_critico"):
             self.efeitos["prox_flecha_d20_critico"] = False
-            return alvo.receber_dano(d20() * 2 + self._atrib.ataque)
-        return alvo.receber_dano(d6() + self._atrib.ataque)
+            dano = d20("Arqueiro - Estilo do Caçador") * 2 + self._atrib.ataque
+            logger.info("🎯 Estilo do Caçador ativo - Dano crítico!")
+            log_dano_causado(self, alvo, dano, "Estilo do Caçador")
+            return alvo.receber_dano(dano)
+        dano = d6("Arqueiro - Ataque Básico") + self._atrib.ataque
+        log_dano_causado(self, alvo, dano, "Ataque Básico")
+        return alvo.receber_dano(dano)
 
     # 4 ORIGINAIS
     def esp_curingas(self, alvo: Entidade) -> int:
         # 8 mana | 5d6
         if not self.gastar_mana(8):
             return 0
-        return alvo.receber_dano(sum(d6() for _ in range(5)))
+        dano = somar_dados(5, 6, "Curingas - Dano")
+        log_dano_causado(self, alvo, dano, "Curingas")
+        return alvo.receber_dano(dano)
 
     def esp_cortes_certeiros(self, alvo: Entidade) -> int:
         # 6 mana | sangramento por 5 turnos (1d6/turno)
@@ -367,7 +447,8 @@ class Arqueiro(Personagem):
         if hasattr(alvo, "efeitos"):
             alvo.efeitos["sangramento_turnos"] = max(alvo.efeitos.get("sangramento_turnos", 0), 5)
             alvo.efeitos["sangramento_tipo"] = "d6"
-        print(f"{self.nome} aplica cortes certeiros! O alvo sangrará por 5 turnos.")
+            log_efeito_aplicado(alvo, "Cortes Certeiros", 5)
+        logger.info(f"🎯 {self.nome} aplica cortes certeiros! O alvo sangrará por 5 turnos.")
         return 0
 
     def esp_estilo_do_cacador(self) -> int:
@@ -375,7 +456,7 @@ class Arqueiro(Personagem):
         if not self.gastar_mana(10):
             return 0
         self.efeitos["prox_flecha_d20_critico"] = True
-        print(f"{self.nome} prepara Estilo do Caçador (próximo tiro: d20 crítico).")
+        logger.info(f"🎯 {self.nome} prepara Estilo do Caçador (próximo tiro: d20 crítico).")
         return 0
 
     def esp_marca_fatal(self, alvo: Entidade) -> int:
@@ -384,7 +465,8 @@ class Arqueiro(Personagem):
             return 0
         if hasattr(alvo, "efeitos"):
             alvo.efeitos["marca_fatal_turnos"] = max(alvo.efeitos.get("marca_fatal_turnos", 0), 7)
-        print(f"{self.nome} marca o alvo: 1d6 por 7 turnos.")
+            log_efeito_aplicado(alvo, "Marca Fatal", 7)
+        logger.info(f"🎯 {self.nome} marca o alvo: 1d6 por 7 turnos.")
         return 0
 
     # 3 ADICIONAIS
@@ -392,8 +474,9 @@ class Arqueiro(Personagem):
         # 1 mana | + (1d6+2) no PRÓXIMO ataque
         if not self.gastar_mana(1):
             return 0
-        self.efeitos["bonus_proximo"] = self.efeitos.get("bonus_proximo", 0) + (d6() + 2)
-        print(f"{self.nome} ativa Aljava da Ruína: +1d6+2 no próximo tiro.")
+        bonus = d6("Aljava da Ruína - Bônus") + 2
+        self.efeitos["bonus_proximo"] = self.efeitos.get("bonus_proximo", 0) + bonus
+        logger.info(f"🏹 {self.nome} ativa Aljava da Ruína: +{bonus} no próximo tiro.")
         return 0
 
     def esp_contaminar(self, alvo: Entidade) -> int:
@@ -403,7 +486,8 @@ class Arqueiro(Personagem):
         if hasattr(alvo, "efeitos"):
             alvo.efeitos["veneno_turnos"] = max(alvo.efeitos.get("veneno_turnos", 0), 3)
             alvo.efeitos["veneno_dano"] = 2
-        print(f"{self.nome} contamina o alvo (veneno por 3 turnos).")
+            log_efeito_aplicado(alvo, "Veneno", 3)
+        logger.info(f"☠️ {self.nome} contamina o alvo (veneno por 3 turnos).")
         return 0
 
     def esp_as_na_manga(self) -> int:
@@ -412,7 +496,7 @@ class Arqueiro(Personagem):
             return 0
         self.efeitos["critico_proximo"] = True
         self.efeitos["bonus_proximo"] = self.efeitos.get("bonus_proximo", 0) + 10
-        print(f"{self.nome} prepara o Ás na Manga (próximo tiro crítico +10).")
+        logger.info(f"🎲 {self.nome} prepara o Ás na Manga (próximo tiro crítico +10).")
         return 0
 
     def usar_especial(self, n: int, alvo: Optional[Entidade] = None, **kwargs) -> int:
@@ -436,7 +520,8 @@ class Curandeiro(Personagem):
         # 0 mana | 1d6 - 2 (mín. 0)
         if not self.gastar_mana(0):
             return 0
-        bruto = max(0, d6() - 2 + self._atrib.ataque)
+        bruto = max(0, d6("Curandeiro - Ataque Básico") - 2 + self._atrib.ataque)
+        log_dano_causado(self, alvo, bruto, "Ataque Básico")
         return alvo.receber_dano(bruto)
 
     # 4 ORIGINAIS
@@ -445,12 +530,12 @@ class Curandeiro(Personagem):
         if not self.gastar_mana(3):
             return 0
         if not aliados:
-            print("(Sem aliados para curar.)")
+            logger.warning("(Sem aliados para curar.)")
             return 0
-        cura = d6()
+        cura = d6("Capítulo Final - Cura")
         for a in aliados:
             a.curar(cura)
-        print(f"{self.nome} cura todos os aliados em {cura}.")
+        logger.info(f"📖 {self.nome} usa Capítulo Final e cura todos os aliados em {cura}.")
         return 0
 
     def esp_semente_engatilhada(self, aliado: Optional[Personagem]) -> int:
@@ -458,11 +543,12 @@ class Curandeiro(Personagem):
         if not self.gastar_mana(5):
             return 0
         if not aliado:
-            print("(Sem aliado alvo para a semente.)")
+            logger.warning("(Sem aliado alvo para a semente.)")
             return 0
         if hasattr(aliado, "efeitos"):
             aliado.efeitos["semente_turnos"] = 2
-        print(f"{self.nome} planta uma semente curativa em {getattr(aliado, 'nome', 'aliado')}.")
+            log_efeito_aplicado(aliado, "Semente Engatilhada", 2)
+        logger.info(f"🌱 {self.nome} planta uma semente curativa em {getattr(aliado, 'nome', 'aliado')}.")
         return 0
 
     def esp_ventos_revigorantes(self) -> int:
@@ -470,17 +556,18 @@ class Curandeiro(Personagem):
         if not self.gastar_mana(15):
             return 0
         self.efeitos["refletir_dano_turnos"] = max(self.efeitos.get("refletir_dano_turnos", 0), 1)
-        print(f"{self.nome} invoca Ventos Revigorantes (reflexão por 1 rodada).")
+        logger.info(f"💨 {self.nome} invoca Ventos Revigorantes (reflexão por 1 rodada).")
         return 0
 
     def esp_golpe_de_misericordia(self, alvo: Entidade) -> int:
         # 0 mana | sacrifica a própria vida e causa 4d20
         if not self.gastar_mana(0):
             return 0
-        dano = sum(d20() for _ in range(4))
+        dano = somar_dados(4, 20, "Golpe de Misericórdia - Dano")
         ef = alvo.receber_dano(dano)
         self._atrib.vida = 0
-        print(f"{self.nome} cai após um Golpe de Misericórdia!")
+        logger.warning(f"💀 {self.nome} sacrifica-se em um Golpe de Misericórdia!")
+        log_dano_causado(self, alvo, dano, "Golpe de Misericórdia")
         return ef
 
     # 3 ADICIONAIS
@@ -488,24 +575,25 @@ class Curandeiro(Personagem):
         # 4 mana | 2d6 de dano e cura 1d6
         if not self.gastar_mana(4):
             return 0
-        dano = sum(d6() for _ in range(2))
-        cura = d6()
+        dano = somar_dados(2, 6, "Hemofagia - Dano")
+        cura = d6("Hemofagia - Cura")
         self.curar(cura)
-        print(f"{self.nome} usa Hemofagia: causa {dano} e cura {cura}.")
-        return alvo.receber_dano(dano)
+        logger.info(f"🩸 {self.nome} usa Hemofagia: causa {dano} e cura {cura}.")
+        ef = alvo.receber_dano(dano)
+        return ef
 
     def esp_transfusao_vital(self, aliado: Optional[Personagem]) -> int:
         # 30 mana | transfere 15 de vida para 1 aliado
         if not self.gastar_mana(30):
             return 0
         if not aliado:
-            print("(Sem aliado para Transfusão Vital.)")
+            logger.warning("(Sem aliado para Transfusão Vital.)")
             return 0
         qtd = min(15, self._atrib.vida)
         self._attrib_vida_backup = self._atrib.vida  # opcional debug
         self._atrib.vida -= qtd
         aliado.curar(qtd)
-        print(f"{self.nome} transfere {qtd} de vida para {getattr(aliado, 'nome', 'aliado')}.")
+        logger.info(f"💝 {self.nome} transfere {qtd} de vida para {getattr(aliado, 'nome', 'aliado')}.")
         return 0
 
     def esp_resplendor_cosmico(self, aliados: Optional[List[Personagem]]) -> int:
@@ -513,11 +601,11 @@ class Curandeiro(Personagem):
         if not self.gastar_mana(15):
             return 0
         if not aliados:
-            print("(Sem aliados para Resplendor Cósmico.)")
+            logger.warning("(Sem aliados para Resplendor Cósmico.)")
             return 0
         for a in aliados:
             a.curar(20)
-        print(f"{self.nome} cura todos os aliados em 20.")
+        logger.info(f"🌟 {self.nome} usa Resplendor Cósmico e cura todos os aliados em 20.")
         return 0
 
     def usar_especial(self, n: int, alvo: Optional[Entidade] = None,
@@ -553,7 +641,7 @@ def custo_ataque_basico(p: Personagem) -> int:
 
 def _num_especiais_desbloqueadas(nivel: int) -> int:
     """
-    7 especiais no total. Começa com 4 “originais” e ganha +1 nos níveis 2, 4 e 6.
+    7 especiais no total. Começa com 4 "originais" e ganha +1 nos níveis 2, 4 e 6.
     """
     count = 4
     for marco in (2, 4, 6):
@@ -564,7 +652,7 @@ def _num_especiais_desbloqueadas(nivel: int) -> int:
 def especiais_do_personagem(p: Personagem, considerar_nivel: bool = True) -> List[tuple[int, str, int]]:
     """
     Retorna (id, nome, custo) das especiais — 7 por classe.
-    As 4 primeiras são as “originais”, seguidas das 3 “anteriores”.
+    As 4 primeiras são as "originais", seguidas das 3 "anteriores".
     """
     base_por_classe: dict[str, List[tuple[int, str, int]]] = {
         "Guerreiro": [
