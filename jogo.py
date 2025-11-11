@@ -2,13 +2,9 @@ from __future__ import annotations
 import json
 import os
 from utils.logger import Logger
-
 from models.base import Entidade
 from models.inimigo import Inimigo
-from models.personagem import (
-    Personagem,
-    criar_personagem, especiais_do_personagem, custo_ataque_basico
-)
+from models.personagem import Personagem
 from models.missao import MissaoHordas, Missao, ResultadoMissao
 from dado import d6, d20
 

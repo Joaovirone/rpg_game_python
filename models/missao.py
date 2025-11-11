@@ -2,10 +2,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from .personagem import Personagem
 from .inimigo import Inimigo  # generate_horde
-from rpg_game_python.dado import d6, d20
+from dado import d6
 from .horda import generate_horde
 from typing import List, Tuple, Dict
-from models.personagem import custo_ataque_basico, especiais_do_personagem, tick_efeitos_inicio_turno
+from models.personagem import tick_efeitos_inicio_turno
 
 
 # colocar após os imports em models/missao.py

@@ -1,8 +1,6 @@
 # models/personagem.py
 from __future__ import annotations
 from .base import Entidade, Atributos
-from .dado import d6, d20
-
 from typing import Optional, List, Dict
 from dado import d6 , d20 
 from .base import Atributos, Entidade  # reexport Entidade para compatibilidade
