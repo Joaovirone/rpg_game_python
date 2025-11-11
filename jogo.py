@@ -103,6 +103,9 @@ class Jogo:
     # ============================ MENUS ===================================
 
     def menu_criar_personagem(self) -> None:
+
+        self.logger.info("Iniciando menu Criação de Personagem...")
+
         while True:
             print("\n=== Criar Personagem ===")
             print(f"Nome atual: {self.personagem['nome'] or '(não definido)'}")
@@ -128,6 +131,9 @@ class Jogo:
                 print("Opção inválida.")
 
     def _definir_nome(self) -> None:
+
+        self.logger.info("Iniciando definição de nome do personagem...")
+
         nome = input("Digite o nome do personagem: ").strip()
         if nome:
             self.personagem["nome"] = nome
@@ -136,6 +142,9 @@ class Jogo:
             print("Nome não alterado.")
 
     def _escolher_arquetipo(self) -> None:
+
+        self.logger.info("Iniciando menu Definição de Arquétipo...")
+
         print("\nArquétipos disponíveis:")
         print("[1] Guerreiro")
         print("[2] Mago")
@@ -153,6 +162,9 @@ class Jogo:
             print("Opção inválida. Arquétipo não alterado.")
 
     def _confirmar_criacao(self) -> None:
+
+        self.logger.info("Executando confirmação da criações do personagem...")
+
         """
         Aqui NÃO criamos o personagem. Apenas validamos escolhas.
         A criação concreta ocorrerá somente quando a missão iniciar,
@@ -170,6 +182,9 @@ class Jogo:
         print("(Obs.: a instância será criada apenas ao iniciar a missão.)")
 
     def _ajuda_criar_personagem(self) -> None:
+
+        self.logger.info("Iniciando menu Ajuda da criação do personagem...")
+
         print("\nAjuda — Criar Personagem")
         print("- Defina um nome e um arquétipo.")
         print("- O jogo NÃO cria a instância aqui; isso só acontece ao iniciar a missão.")
@@ -178,6 +193,9 @@ class Jogo:
     # ================================ MISSÃO ===============================
 
     def menu_missao(self) -> None:
+
+        self.logger.info("Iniciando menu Missões...")
+
         while True:
             print("\n=== Missão ===")
             print(f"Dificuldade atual: {self.missao_config['dificuldade'] or '(não definida)'}")
@@ -211,6 +229,9 @@ class Jogo:
                 print("Opção inválida.")
 
     def escolher_missao(self) -> None:
+
+        self.logger.info("Iniciando menu Escolha de missões...")
+
         print("Escolha de Missões:")
         print("[1] Eliminar Ladrão")
         print("[2] Eliminar Goblin")
@@ -232,6 +253,9 @@ class Jogo:
             print(f"Missão definida: {escolha}")
 
     def _escolher_dificuldade(self) -> None:
+
+        self.logger.info("Iniciando Definição de dificuldade...")
+
         print("\nDificuldades:")
         print("[1] Fácil")
         print("[2] Média")
@@ -246,6 +270,9 @@ class Jogo:
             print("Opção inválida.")
 
     def _escolher_cenario(self) -> None:
+
+        self.logger.info("Iniciando Definição de cenários(mapa)...")
+
         print("\nCenários:")
         print("[1] Trilha")
         print("[2] Floresta")
@@ -261,6 +288,9 @@ class Jogo:
             print("Opção inválida.")
 
     def _preview_missao(self) -> None:
+
+        self.logger.info("Iniciando Preview de Missões")
+
         print("\nPré-visualização da Missão")
         print(f"- Dificuldade: {self.missao_config['dificuldade'] or '(não definida)'}")
         print(f"- Cenário:     {self.missao_config['cenario'] or '(não definido)'}")
@@ -268,6 +298,9 @@ class Jogo:
         print("  (A lógica fica em missão.py/inimigo.py; o herói é criado só ao iniciar.)")
 
     def _ajuda_missao(self) -> None:
+
+        self.logger.info("Iniciando menu Ajuda de missões...")
+
         print("\nAjuda — Missão")
         print("- Em 'Iniciar missão', o ataque normal usa d20 para decidir a qualidade:")
         print("  1–5: péssima (erra), 6–10: normal, 11–15: boa (+1), 16–20: excelente (crítico).")
@@ -276,6 +309,9 @@ class Jogo:
     # ========================= SALVAR/CARREGAR ==============================
 
     def menu_salvar(self) -> None:
+
+        self.logger.info("Iniciando menu Salvar progresso do jogo...")
+
         while True:
             print("\n=== Salvar ===")
             print("[1] Salvar rápido")
@@ -330,6 +366,9 @@ class Jogo:
         print("- Salvar nomeado permite informar o nome do arquivo.")
 
     def menu_carregar(self) -> None:
+
+        self.logger.info("Iniciando menu Carregar progresso salvo...")
+
         while True:
             print("\n=== Carregar ===")
             print("[1] Carregar último save")
@@ -393,6 +432,8 @@ class Jogo:
     # ========================= INICIAR MISSÃO ==============================
 
     def _iniciar_missao_placeholder(self, inimigo: Entidade | None = None) -> None:
+
+        self.logger.info("Iniciando Missões...")
         """
         Inicia a missão de combate.
         ATENÇÃO: A criação do personagem é delegada a models.personagem.criar_personagem(...).
