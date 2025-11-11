@@ -1,5 +1,5 @@
-from personagem import Personagem
-from base import Entidade
+from .personagem import Personagem
+from .base import Entidade
 class Inventario:
     def __init__(self, capacidade_maxima: int = 20):
         self.itens = []
@@ -20,23 +20,6 @@ class Inventario:
     def listar_itens(self):
         return self.itens
     
-    def listar_por_tipo(self, tipo: str):
-        """Lista todos os itens de um determinado tipo"""
-        return [item for item in self.itens if item.tipo.lower() == tipo.lower()]
-    
-    def listar_por_raridade(self, raridade: str):
-        """Lista todos os itens de uma determinada raridade"""
-        return [item for item in self.itens if item.raridade.lower() == raridade.lower()]
-    
-    def espaco_disponivel(self):
-        """Retorna a quantidade de espaços disponíveis no inventário"""
-        return self.capacidade_maxima - len(self.itens)
-    
-    def esta_cheio(self):
-        """Verifica se o inventário está cheio"""
-        return len(self.itens) >= self.capacidade_maxima
-    
-
 
 class Drop_rate:
     RARIDADE_MODIFICADOR = {
@@ -105,7 +88,7 @@ class Item:
         self.defesa = defesa
 
 
-    items = list[dict] =[{
+    items =[{
         "nome": "Poção de Vida",
         "tipo": "consumível",
         "valor": 50,

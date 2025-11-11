@@ -6,6 +6,7 @@ from models.base import Entidade
 from models.inimigo import Inimigo
 from models.personagem import Personagem
 from models.missao import MissaoHordas, Missao, ResultadoMissao
+from models.inventario import Inventario,Drop_rate, Loot, Item
 from dado import d6, d20
 
 
@@ -23,6 +24,21 @@ class Jogo:
         self.logger = Logger()
         self.logger.info("Iniciando o jogo...")
 
+        self.inventario = Inventario()
+
+        self.itens = []
+        self.capacidade_maxima = 20
+
+        self.nome = None
+        self.tipo = None
+        self.valor = None
+        self.raridade = None
+        self.dano = None
+        self.defesa = None
+
+
+ 
+
         # Somente escolhas do jogador; nada de instanciar aqui.
         self.personagem = {
             "nome": None,         # str
@@ -34,6 +50,7 @@ class Jogo:
             "cenario": None,      # "Trilha" | "Floresta" | "Caverna" | "Ruínas"
             "missao": None,       # rótulo da missão (se usar Missao*)
         }
+    
 
         self._ultimo_save = None
         self._ultimo_load = None
@@ -424,6 +441,59 @@ class Jogo:
     def _ajuda_carregar(self) -> None:
         print("\nAjuda — Carregar")
         print("- O carregamento usa os arquivos .json da pasta 'saves'.")
+
+    def menu_inventario(self) -> None:
+        self.logger.info("Iniciando menu Carregar progresso salvo...")
+
+        while True:
+            print("\n=== Inventário ===")
+            print("[1] Mostrar todos os itens do inventário")
+            print("[2] Remover Item")
+            print("[3] Ajuda")
+            print("[0] Voltar")
+            op = input("> ").strip()
+
+            if op == "1":
+                self.mostrar_inventario()
+            elif op == "2":
+                self.remover_item_inventario()
+            elif op == "3":
+                self.ajuda_inventario()
+            elif op == "0":
+                break
+            else:
+                print("Opção inválida.")
+
+    def ajuda_inventario(self) -> None:
+        print("Ajuda sendo feita")
+        
+
+    def remover_item_inventario(self, item):
+        """Remove um item do inventário do jogador."""
+        if self.inventario.remover_item(item):
+            print(f"🗑️ {item.nome} foi removido do inventário!")
+        else:
+            print("⚠️ Item não encontrado.")
+
+    def mostrar_inventario(self):
+        """Mostra todos os itens atuais."""
+        itens = self.inventario.listar_itens()
+        if not itens:
+            print("\n📦 O inventário está vazio.")
+            return
+        
+        print("\n🎒 Itens do inventário:")
+        print("-" * 50)
+        for i, item in enumerate(itens, start=1):
+            print(f"{i}. {item.nome} | Tipo: {item.tipo} | Raridade: {item.raridade} | Valor: {item.valor}")
+            if item.dano:
+                print(f"   ⚔️ Dano: {item.dano}")
+            if item.defesa:
+                print(f"   🛡️ Defesa: {item.defesa}")
+        print("-" * 50)
+
+
+    
 
     # ========================= INICIAR MISSÃO ==============================
 
