@@ -2,42 +2,32 @@ from __future__ import annotations
 import json
 import os
 from utils.logger import Logger
+
 from models.base import Entidade
 from models.inimigo import Inimigo
-from models.personagem import Personagem
-from models.missao import MissaoHordas, Missao, ResultadoMissao
-from models.inventario import Inventario,Drop_rate, Loot, Item
-from dado import d6, d20
+from models.personagem import (
+    Personagem,
+    criar_personagem,              # fábrica central (models.personagem)
+    especiais_do_personagem,       # lista (id, nome, custo) por nível
+    custo_ataque_basico,           # custo do ataque básico por classe
+    preview_personagem,            # helper para exibir stats
+)
+from models.missao import Missao, ResultadoMissao
+from dado import  d6,  d20   # nomes corretos
 
 
 class Jogo:
     """
     Estrutura base com menus e submenus.
-    - Coleta nome/arquétipo, mas NÃO cria o personagem aqui.
-    - A criação concreta é delegada a models.personagem.criar_personagem.
-    - O HUD do turno é LOCAL deste arquivo (função _mostrar_hud_turno) e
-      usa apenas helpers exportados por models.personagem.
+    - Coleta nome/arquétipo, mas NÃO instancia classes aqui manualmente.
+    - Criação concreta é delegada a models.personagem.criar_personagem(...).
+    - O HUD do turno é local deste arquivo (_mostrar_hud_turno) e usa helpers do módulo de personagem.
     - Missões usam d20 para qualidade da ação e d6 para dano.
     """
 
     def __init__(self) -> None:
         self.logger = Logger()
         self.logger.info("Iniciando o jogo...")
-
-        self.inventario = Inventario()
-
-        self.itens = []
-        self.capacidade_maxima = 20
-
-        self.nome = None
-        self.tipo = None
-        self.valor = None
-        self.raridade = None
-        self.dano = None
-        self.defesa = None
-
-
- 
 
         # Somente escolhas do jogador; nada de instanciar aqui.
         self.personagem = {
@@ -48,9 +38,8 @@ class Jogo:
         self.missao_config = {
             "dificuldade": None,  # "Fácil" | "Média" | "Difícil"
             "cenario": None,      # "Trilha" | "Floresta" | "Caverna" | "Ruínas"
-            "missao": None,       # rótulo da missão (se usar Missao*)
+            "missao": None,       # rótulo/string da missão (simples)
         }
-    
 
         self._ultimo_save = None
         self._ultimo_load = None
@@ -58,6 +47,113 @@ class Jogo:
         # Pasta de saves
         self.save_dir = os.path.join(os.getcwd(), "saves")
         os.makedirs(self.save_dir, exist_ok=True)
+
+    # ------------------------ util internos de UI -------------------------
+
+    def _nivel_requerido_por_indice(self, idx: int) -> int:
+        """
+        Mapa de desbloqueio (posição na lista de especiais):
+        1..4 => nível 1 | 5 => nível 2 | 6 => nível 4 | 7 => nível 6
+        """
+        if idx <= 4:
+            return 1
+        return {5: 2, 6: 4, 7: 6}.get(idx, 10)
+
+    def _descricao_habilidade(self, cls_nome: str, nome_hab: str) -> str:
+        """
+        Descrições curtas das habilidades por classe.
+        Apenas texto (apresentação); lógica real está em models.personagem.
+        """
+        desc: dict[str, dict[str, str]] = {
+            "Guerreiro": {
+                "Execução Pública": "5d6 com crítico garantido +3 (após 4 turnos).",
+                "Perseverança": "Fica invulnerável por 1 turno.",
+                "Golpe Trovejante": "1d20 + ataque de dano direto.",
+                "Lâmina Ínfera": "3d6 e aplica sangramento 1d6/turno por 2 turnos.",
+                "Duro na Queda": "Ganha +1d6 no próximo ataque.",
+                "Determinação Mortal": "Cura 1d20 de vida.",
+                "Golpe Estilhaçador": "Próximo ataque com crítico garantido.",
+            },
+            "Mago": {
+                "Colapso Minguante": "6d6 de dano arcano.",
+                "Descarnar": "3d20 e aplica sangramento 1d6/turno por 2 turnos.",
+                "Distorção no Tempo": "Recupera 50 de mana.",
+                "Empurrão Sísmico": "3d6 e alvo perde 1 turno (1x por missão).",
+                "Paradoxo": "5d6 de dano.",
+                "Eletrocussão": "3d6 e 1d6-1 por turno por 2 turnos.",
+                "Explosão Florescente": "10d6 e não age no próximo turno.",
+            },
+            "Arqueiro": {
+                "Curingas": "5d6 de dano.",
+                "Cortes Certeiros": "Aplica sangramento 1d6/turno por 5 turnos.",
+                "Estilo do Caçador": "Próximo tiro vira 1d20 com crítico.",
+                "Marca Fatal": "Aplica 1d6/turno por 7 turnos.",
+                "Aljava da Ruína": "Ganha +(1d6+2) no próximo ataque.",
+                "Contaminar": "Aplica veneno (2 de dano) por 3 turnos.",
+                "Ás na Manga": "Próximo ataque crítico garantido +10.",
+            },
+            "Curandeiro": {
+                "Capítulo Final": "Cura 1d6 todos os aliados.",
+                "Semente Engatilhada": "Após 2 turnos, aliado cura 1d20-5.",
+                "Ventos Revigorantes": "Reflete o dano recebido por 1 rodada.",
+                "Golpe de Misericórdia": "Causa 4d20 e sacrifica a própria vida.",
+                "Hemofagia": "Causa 2d6 e cura 1d6.",
+                "Transfusão Vital": "Transfere 15 de vida a um aliado.",
+                "Resplendor Cósmico": "Cura todos os aliados em 20.",
+            },
+        }
+        return desc.get(cls_nome, {}).get(nome_hab, "")
+
+    # ======================================================================
+    # PREVIEW do personagem (apenas exibe; instancia via fábrica e descarta)
+    # ======================================================================
+    def mostrar_personagem(self) -> None:
+        """Mostra um preview do personagem com stats, XP e habilidades (inclui bloqueadas com aviso)."""
+        if not self.personagem.get("nome") or not self.personagem.get("arquetipo"):
+            print("Defina nome e arquétipo para visualizar o personagem.")
+            return
+
+        # Instância temporária via fábrica (sem criar nada “na mão” aqui)
+        heroi_tmp: Personagem = criar_personagem(
+            self.personagem["arquetipo"],
+            self.personagem["nome"]
+        )
+        stats = preview_personagem(heroi_tmp)
+
+        # ---- Cabeçalho / Stats ----
+        print("\n=== Preview do Personagem ===")
+        print(f"Nome: {heroi_tmp.nome} | Classe: {heroi_tmp.__class__.__name__} | Nível: {heroi_tmp.nivel}")
+        print(f"🩸 Vida: {stats['vida']}/{stats['vida_max']}  |  🛡️ Defesa: {stats['defesa']}")
+        print(f"⚔️ Ataque: {stats['ataque']}  |  🔮 Mana: {stats['mana']}  |  ✨ Magia: {stats['ataque_magico']}")
+
+        # ---- XP / Progressão ----
+        if heroi_tmp.nivel >= 10:
+            print("📈 XP: Nível máximo (10) atingido.")
+        else:
+            xp_atual = getattr(heroi_tmp, "xp", 0)
+            xp_prox = 100 * heroi_tmp.nivel
+            faltam = max(0, xp_prox - xp_atual)
+            print(f"📈 XP: {xp_atual}/{xp_prox}  (faltam {faltam} para o nível {heroi_tmp.nivel + 1})")
+
+        # ---- Ataque básico ----
+        custo_bas = custo_ataque_basico(heroi_tmp)
+        print(f"\nAtaque básico: custo {custo_bas} mana (sempre disponível)")
+
+        # ---- Habilidades (todas) com bloqueio por nível + descrição ----
+        print("\nHabilidades da classe:")
+        todas = especiais_do_personagem(heroi_tmp, considerar_nivel=False)
+        cls_nome = heroi_tmp.__class__.__name__
+
+        for i, (_esp_id, nome, custo) in enumerate(todas, start=1):
+            req = self._nivel_requerido_por_indice(i)
+            disponivel = heroi_tmp.nivel >= req
+            desc = self._descricao_habilidade(cls_nome, nome)
+            status = "Disponível" if disponivel else f"Bloqueada: requer nível {req}"
+            print(f" - [{i}] {nome} — custo {custo}  ({status})")
+            if desc:
+                print(f"     • {desc}")
+
+        print("================================")
 
     # ======================================================================
     # HUD do turno (LOCAL; usa helpers do módulo de personagem)
@@ -74,13 +170,25 @@ class Jogo:
         else:
             print(f"[1] Ataque normal (d20) — custo {custo_bas} (insuficiente)")
 
-        # Especiais (até 7, destravados por nível; nomes/custos vindos do helper)
-        especiais = especiais_do_personagem(heroi, considerar_nivel=True)
-        for i, (_esp_id, nome, custo) in enumerate(especiais, start=2):
+        # Especiais liberadas (menu 2..8)
+        liberadas = especiais_do_personagem(heroi, considerar_nivel=True)
+        for i, (_esp_id, nome, custo) in enumerate(liberadas, start=2):
             if mana_atual >= custo:
                 print(f"[{i}] {nome} — custo {custo} (ficará: {mana_atual - custo})")
             else:
                 print(f"[{i}] {nome} — custo {custo} (insuficiente)")
+
+        # Especiais bloqueadas (apenas aviso; não selecionáveis)
+        todas = especiais_do_personagem(heroi, considerar_nivel=False)
+        if len(liberadas) < len(todas):
+            bloqueadas_txt = []
+            for i, (_esp_id, nome, _c) in enumerate(todas, start=1):
+                req = self._nivel_requerido_por_indice(i)
+                if heroi.nivel < req:
+                    bloqueadas_txt.append(f"{nome} (requer nível {req})")
+            if bloqueadas_txt:
+                print("Bloqueadas (não selecionáveis): " + "; ".join(bloqueadas_txt))
+
         print("[0] Fugir")
 
     # ======================================================================
@@ -95,7 +203,7 @@ class Jogo:
             print("→ Ação PÉSSIMA: você erra o golpe. Sem dano.")
             return 0
 
-        # dano base físico: 1d6 + ataque do herói (a lógica detalhada vive no Personagem)
+        # dano base físico: 1d6 + ataque do herói
         base = d6() + heroi._atrib.ataque
 
         if 6 <= r <= 10:
@@ -116,7 +224,6 @@ class Jogo:
     # ============================ MENUS ===================================
 
     def menu_criar_personagem(self) -> None:
-
         self.logger.info("Iniciando menu Criação de Personagem...")
 
         while True:
@@ -126,6 +233,7 @@ class Jogo:
             print("[1] Definir nome")
             print("[2] Escolher arquétipo")
             print("[3] Confirmar criação")
+            print("[4] Mostrar personagem (preview)")
             print("[9] Ajuda")
             print("[0] Voltar")
             op = input("> ").strip()
@@ -136,6 +244,8 @@ class Jogo:
                 self._escolher_arquetipo()
             elif op == "3":
                 self._confirmar_criacao()
+            elif op == "4":
+                self.mostrar_personagem()
             elif op == "9":
                 self._ajuda_criar_personagem()
             elif op == "0":
@@ -144,9 +254,7 @@ class Jogo:
                 print("Opção inválida.")
 
     def _definir_nome(self) -> None:
-
         self.logger.info("Iniciando definição de nome do personagem...")
-
         nome = input("Digite o nome do personagem: ").strip()
         if nome:
             self.personagem["nome"] = nome
@@ -155,9 +263,7 @@ class Jogo:
             print("Nome não alterado.")
 
     def _escolher_arquetipo(self) -> None:
-
         self.logger.info("Iniciando menu Definição de Arquétipo...")
-
         print("\nArquétipos disponíveis:")
         print("[1] Guerreiro")
         print("[2] Mago")
@@ -175,14 +281,7 @@ class Jogo:
             print("Opção inválida. Arquétipo não alterado.")
 
     def _confirmar_criacao(self) -> None:
-
-        self.logger.info("Executando confirmação da criações do personagem...")
-
-        """
-        Aqui NÃO criamos o personagem. Apenas validamos escolhas.
-        A criação concreta ocorrerá somente quando a missão iniciar,
-        delegada a models.personagem.criar_personagem(...).
-        """
+        self.logger.info("Executando confirmação da criação do personagem...")
         if not self.personagem["nome"]:
             print("Defina um nome antes de confirmar a criação.")
             return
@@ -193,11 +292,11 @@ class Jogo:
         print("\nPersonagem configurado!")
         print(f"Nome: {self.personagem['nome']} | Arquétipo: {self.personagem['arquetipo']}")
         print("(Obs.: a instância será criada apenas ao iniciar a missão.)")
+        # Mostra o preview imediatamente (sem manter instância)
+        self.mostrar_personagem()
 
     def _ajuda_criar_personagem(self) -> None:
-
         self.logger.info("Iniciando menu Ajuda da criação do personagem...")
-
         print("\nAjuda — Criar Personagem")
         print("- Defina um nome e um arquétipo.")
         print("- O jogo NÃO cria a instância aqui; isso só acontece ao iniciar a missão.")
@@ -206,7 +305,6 @@ class Jogo:
     # ================================ MISSÃO ===============================
 
     def menu_missao(self) -> None:
-
         self.logger.info("Iniciando menu Missões...")
 
         while True:
@@ -242,33 +340,32 @@ class Jogo:
                 print("Opção inválida.")
 
     def escolher_missao(self) -> None:
-
         self.logger.info("Iniciando menu Escolha de missões...")
-
         print("Escolha de Missões:")
-        print("[1] Eliminar Ladrão")
-        print("[2] Eliminar Goblin")
-        print("[3] Eliminar Golem")
-        print("[4] Eliminar Elfo")
-        print("[5] Eliminar Dragão")
+        print("[1] Matar Ladrões")
+        print("[2] Matar Goblins")
+        print("[3] Matar Golens")
+        print("[4] Matar Elfos")
+        print("[5] Matar Dragões")
         op = input("> ").strip()
-        # Se Missao.missao_X retorna rótulo/objeto de missão:
+
+        # Guardamos apenas o rótulo; a lógica real está em models/missao.py
         mapa = {
-            "1": Missao.missao_1(self),
-            "2": Missao.missao_2(self),
-            "3": Missao.missao_3(self),
-            "4": Missao.missao_4(self),
-            "5": Missao.missao_5(self),
+            "1": "Matar Ladrões",
+            "2": "Matar Goblins",
+            "3": "Matar Golens",
+            "4": "Matar Elfos",
+            "5": "Matar Dragões",
         }
         escolha = mapa.get(op)
         if escolha:
             self.missao_config["missao"] = escolha
             print(f"Missão definida: {escolha}")
+        else:
+            print("Opção inválida.")
 
     def _escolher_dificuldade(self) -> None:
-
         self.logger.info("Iniciando Definição de dificuldade...")
-
         print("\nDificuldades:")
         print("[1] Fácil")
         print("[2] Média")
@@ -283,9 +380,7 @@ class Jogo:
             print("Opção inválida.")
 
     def _escolher_cenario(self) -> None:
-
         self.logger.info("Iniciando Definição de cenários(mapa)...")
-
         print("\nCenários:")
         print("[1] Trilha")
         print("[2] Floresta")
@@ -301,9 +396,7 @@ class Jogo:
             print("Opção inválida.")
 
     def _preview_missao(self) -> None:
-
         self.logger.info("Iniciando Preview de Missões")
-
         print("\nPré-visualização da Missão")
         print(f"- Dificuldade: {self.missao_config['dificuldade'] or '(não definida)'}")
         print(f"- Cenário:     {self.missao_config['cenario'] or '(não definido)'}")
@@ -311,9 +404,7 @@ class Jogo:
         print("  (A lógica fica em missão.py/inimigo.py; o herói é criado só ao iniciar.)")
 
     def _ajuda_missao(self) -> None:
-
         self.logger.info("Iniciando menu Ajuda de missões...")
-
         print("\nAjuda — Missão")
         print("- Em 'Iniciar missão', o ataque normal usa d20 para decidir a qualidade:")
         print("  1–5: péssima (erra), 6–10: normal, 11–15: boa (+1), 16–20: excelente (crítico).")
@@ -322,9 +413,7 @@ class Jogo:
     # ========================= SALVAR/CARREGAR ==============================
 
     def menu_salvar(self) -> None:
-
         self.logger.info("Iniciando menu Salvar progresso do jogo...")
-
         while True:
             print("\n=== Salvar ===")
             print("[1] Salvar rápido")
@@ -379,9 +468,7 @@ class Jogo:
         print("- Salvar nomeado permite informar o nome do arquivo.")
 
     def menu_carregar(self) -> None:
-
         self.logger.info("Iniciando menu Carregar progresso salvo...")
-
         while True:
             print("\n=== Carregar ===")
             print("[1] Carregar último save")
@@ -442,69 +529,10 @@ class Jogo:
         print("\nAjuda — Carregar")
         print("- O carregamento usa os arquivos .json da pasta 'saves'.")
 
-    def menu_inventario(self) -> None:
-        self.logger.info("Iniciando menu Carregar progresso salvo...")
-
-        while True:
-            print("\n=== Inventário ===")
-            print("[1] Mostrar todos os itens do inventário")
-            print("[2] Remover Item")
-            print("[3] Ajuda")
-            print("[0] Voltar")
-            op = input("> ").strip()
-
-            if op == "1":
-                self.mostrar_inventario()
-            elif op == "2":
-                self.remover_item_inventario()
-            elif op == "3":
-                self.ajuda_inventario()
-            elif op == "0":
-                break
-            else:
-                print("Opção inválida.")
-
-    def ajuda_inventario(self) -> None:
-        print("Ajuda sendo feita")
-        
-
-    def remover_item_inventario(self, item):
-        """Remove um item do inventário do jogador."""
-        if self.inventario.remover_item(item):
-            print(f"🗑️ {item.nome} foi removido do inventário!")
-        else:
-            print("⚠️ Item não encontrado.")
-
-    def mostrar_inventario(self):
-        """Mostra todos os itens atuais."""
-        itens = self.inventario.listar_itens()
-        if not itens:
-            print("\n📦 O inventário está vazio.")
-            return
-        
-        print("\n🎒 Itens do inventário:")
-        print("-" * 50)
-        for i, item in enumerate(itens, start=1):
-            print(f"{i}. {item.nome} | Tipo: {item.tipo} | Raridade: {item.raridade} | Valor: {item.valor}")
-            if item.dano:
-                print(f"   ⚔️ Dano: {item.dano}")
-            if item.defesa:
-                print(f"   🛡️ Defesa: {item.defesa}")
-        print("-" * 50)
-
-
-    
-
     # ========================= INICIAR MISSÃO ==============================
 
     def _iniciar_missao_placeholder(self, inimigo: Entidade | None = None) -> None:
-
         self.logger.info("Iniciando Missões...")
-        """
-        Inicia a missão de combate.
-        ATENÇÃO: A criação do personagem é delegada a models.personagem.criar_personagem(...).
-        Aqui apenas passamos as escolhas (nome/arquétipo) e usamos o retorno.
-        """
         if not self.personagem.get("nome") or not self.personagem.get("arquetipo"):
             print("Crie/configure um personagem antes de iniciar uma missão.")
             return
@@ -516,7 +544,7 @@ class Jogo:
             except Exception:
                 inimigo = Inimigo("Goblin", vida=10, ataque=2, defesa=0)
 
-        # >>> ÚNICO ponto onde a instância do herói é obtida (fora do jogo.py)
+        # Instância do herói obtida via fábrica central (fora do jogo.py)
         heroi = criar_personagem(self.personagem["arquetipo"], self.personagem["nome"])
 
         cenario = (self.missao_config.get("cenario") or "Caverna")
@@ -528,7 +556,7 @@ class Jogo:
             print("Erro ao criar engine de Missão:", e)
             return
 
-        # Executa a missão (se sua engine aceitar 'auto', passe conforme desejar)
+        # Executa a missão
         try:
             resultado = engine.executar(auto=True)
         except TypeError:
