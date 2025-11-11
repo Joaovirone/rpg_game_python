@@ -1,7 +1,7 @@
 # models/personagem.py
 from __future__ import annotations
 from typing import Optional, List, Dict
-from dado import rolar_d6 as d6, rolar_d20 as d20
+from dado import  d6, d20
 from .base import Atributos, Entidade  # mantém compat: from models.personagem import Entidade
 
 # ========================== EFEITOS / TICKS ===============================
