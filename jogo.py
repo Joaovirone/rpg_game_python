@@ -2,7 +2,7 @@ from __future__ import annotations
 import json
 import os
 from utils.logger import Logger
-
+from models.inventario import Drop_rate, Inventario, Item
 from models.base import Entidade
 from models.inimigo import Inimigo
 from models.personagem import (
@@ -13,7 +13,7 @@ from models.personagem import (
     preview_personagem,            # helper para exibir stats
 )
 from models.missao import Missao, ResultadoMissao
-from dado import  d6,  d20   # nomes corretos
+from dado import d6, d20   # nomes corretos
 
 
 class Jogo:
@@ -41,6 +41,9 @@ class Jogo:
             "missao": None,       # rótulo/string da missão (simples)
         }
 
+        self.inven = Inventario()
+        self.item = None
+        self.drop_de_itens = None
         self._ultimo_save = None
         self._ultimo_load = None
 
@@ -113,7 +116,7 @@ class Jogo:
             print("Defina nome e arquétipo para visualizar o personagem.")
             return
 
-        # Instância temporária via fábrica (sem criar nada “na mão” aqui)
+        # Instância temporária via fábrica (sem criar nada "na mão" aqui)
         heroi_tmp: Personagem = criar_personagem(
             self.personagem["arquetipo"],
             self.personagem["nome"]
@@ -196,29 +199,33 @@ class Jogo:
     # 1–5: péssima (erra) | 6–10: normal | 11–15: boa (+1) | 16–20: excelente (crítico)
     # ======================================================================
     def _ataque_normal_com_d20(self, heroi: Personagem, inimigo: Entidade) -> int:
-        r = d20()
-        print(f"\n[d20] Você rolou: {r}")
+        r = d20("Ataque Normal - Qualidade")
+        self.logger.info(f"🎯 {heroi.nome} rola d20 para ataque normal: {r}")
 
         if 1 <= r <= 5:
-            print("→ Ação PÉSSIMA: você erra o golpe. Sem dano.")
+            self.logger.warning("💥 Ação PÉSSIMA: você erra o golpe. Sem dano.")
             return 0
 
         # dano base físico: 1d6 + ataque do herói
-        base = d6() + heroi._atrib.ataque
+        base_roll = d6("Ataque Normal - Dano Base")
+        base = base_roll + heroi._atrib.ataque
 
         if 6 <= r <= 10:
             dano = base
-            print(f"→ Ação NORMAL: dano base = {base}")
+            self.logger.info(f"🎯 Ação NORMAL: dano base = {base_roll} + {heroi._atrib.ataque} = {base}")
         elif 11 <= r <= 15:
             dano = base + 1
-            print(f"→ Ação BOA: {base} + 1 = {dano}")
+            self.logger.info(f"🎯 Ação BOA: {base} + 1 = {dano}")
         else:  # 16–20
             dano = base * 2
-            print(f"→ Ação EXCELENTE (crítico): {base} x 2 = {dano}")
+            self.logger.info(f"🎯 Ação EXCELENTE (crítico): {base} x 2 = {dano}")
 
         efetivo = inimigo.receber_dano(dano)
         if efetivo != dano:
-            print(f"(Defesa do alvo reduziu o dano para {efetivo})")
+            self.logger.info(f"🛡️ Defesa do {inimigo.nome} reduziu o dano de {dano} para {efetivo}")
+        else:
+            self.logger.info(f"⚔️ Dano total: {efetivo}")
+        
         return efetivo
 
     # ============================ MENUS ===================================
@@ -258,6 +265,7 @@ class Jogo:
         nome = input("Digite o nome do personagem: ").strip()
         if nome:
             self.personagem["nome"] = nome
+            self.logger.info(f"✅ Nome definido: {nome}")
             print(f"Nome definido: {nome}")
         else:
             print("Nome não alterado.")
@@ -276,6 +284,7 @@ class Jogo:
         arq = mapa.get(escolha)
         if arq:
             self.personagem["arquetipo"] = arq
+            self.logger.info(f"✅ Arquétipo definido: {arq}")
             print(f"Arquétipo definido: {arq}")
         else:
             print("Opção inválida. Arquétipo não alterado.")
@@ -291,6 +300,7 @@ class Jogo:
 
         print("\nPersonagem configurado!")
         print(f"Nome: {self.personagem['nome']} | Arquétipo: {self.personagem['arquetipo']}")
+        self.logger.info(f"🎉 Personagem criado: {self.personagem['nome']} ({self.personagem['arquetipo']})")
         print("(Obs.: a instância será criada apenas ao iniciar a missão.)")
         # Mostra o preview imediatamente (sem manter instância)
         self.mostrar_personagem()
@@ -317,7 +327,7 @@ class Jogo:
             print("[2] Escolher cenário")
             print("[3] Pré-visualizar missão")
             print("[4] Iniciar missão (com d20 e d6)")
-            print("[5] Escolher missão específica")
+            print("[5] Escolher missão")
             print("[9] Ajuda")
             print("[0] Voltar")
             op = input("> ").strip()
@@ -360,6 +370,7 @@ class Jogo:
         escolha = mapa.get(op)
         if escolha:
             self.missao_config["missao"] = escolha
+            self.logger.info(f"✅ Missão definida: {escolha}")
             print(f"Missão definida: {escolha}")
         else:
             print("Opção inválida.")
@@ -375,6 +386,7 @@ class Jogo:
         escolha = mapa.get(op)
         if escolha:
             self.missao_config["dificuldade"] = escolha
+            self.logger.info(f"✅ Dificuldade definida: {escolha}")
             print(f"Dificuldade definida: {escolha}")
         else:
             print("Opção inválida.")
@@ -391,6 +403,7 @@ class Jogo:
         cen = mapa.get(op)
         if cen:
             self.missao_config["cenario"] = cen
+            self.logger.info(f"✅ Cenário definido: {cen}")
             print(f"Cenário definido: {cen}")
         else:
             print("Opção inválida.")
@@ -437,6 +450,7 @@ class Jogo:
         nome_arquivo = os.path.join(self.save_dir, "quick_save.json")
         self.salvar_arquivo(nome_arquivo)
         self._ultimo_save = nome_arquivo
+        self.logger.info(f"💾 Salvamento rápido realizado: {self._ultimo_save}")
         print(f"✔ Salvo em: {self._ultimo_save}")
 
     def _salvar_nomeado(self) -> None:
@@ -447,6 +461,7 @@ class Jogo:
         caminho = os.path.join(self.save_dir, nome)
         self.salvar_arquivo(caminho)
         self._ultimo_save = caminho
+        self.logger.info(f"💾 Salvamento nomeado realizado: {self._ultimo_save}")
         print(f"✔ Progresso salvo como: {self._ultimo_save}")
 
     def salvar_arquivo(self, nome_arquivo: str) -> None:
@@ -457,9 +472,9 @@ class Jogo:
         try:
             with open(nome_arquivo, "w", encoding="utf-8") as f:
                 json.dump(dados, f, indent=4, ensure_ascii=False)
-                self.logger.info(f"Jogo salvo em: {nome_arquivo}")
+                self.logger.info(f"💾 Jogo salvo em: {nome_arquivo}")
         except Exception as error:
-            self.logger.info(f"Erro ao salvar arquivo: {error}")
+            self.logger.error(f"❌ Erro ao salvar arquivo: {error}")
             print(f"Erro ao salvar arquivo: {error}")
 
     def _ajuda_salvar(self) -> None:
@@ -493,10 +508,13 @@ class Jogo:
 
     def _carregar_ultimo(self) -> None:
         if not self._ultimo_save:
+            self.logger.warning("Nenhum save recente encontrado.")
             return print("Nenhum save recente encontrado.")
         if not os.path.exists(self._ultimo_save):
+            self.logger.error(f"Arquivo não encontrado: {self._ultimo_save}")
             return print(f"Arquivo '{self._ultimo_save}' não foi encontrado.")
         self.carregar_arquivo(self._ultimo_save)
+        self.logger.info(f"📂 Progresso carregado: {self._ultimo_save}")
         print(f"✔ Progresso carregado de: {self._ultimo_save}")
 
     def _carregar_nomeado(self) -> None:
@@ -505,11 +523,14 @@ class Jogo:
             nome += ".json"
         caminho = os.path.join(self.save_dir, nome)
         if not os.path.exists(caminho):
+            self.logger.error(f"Arquivo não encontrado: {caminho}")
             return print(f"Arquivo '{caminho}' não foi encontrado.")
         self.carregar_arquivo(caminho)
+        self.logger.info(f"📂 Progresso carregado: {caminho}")
         print(f"✔ Progresso carregado de: {caminho}")
 
     def listar_saves(self) -> None:
+        self.logger.info("Listando arquivos de save disponíveis...")
         print("\nArquivos de Save Disponíveis:")
         for arquivo in os.listdir(self.save_dir):
             if arquivo.endswith(".json"):
@@ -521,8 +542,9 @@ class Jogo:
                 dados = json.load(f)
             self.personagem = dados.get("personagem", self.personagem)
             self.missao_config = dados.get("missao_config", self.missao_config)
+            self.logger.info("✅ Dados do jogo carregados com sucesso")
         except Exception as error:
-            self.logger.info(f"Erro ao carregar arquivo: {error}")
+            self.logger.error(f"❌ Erro ao carregar arquivo: {error}")
             print(f"Erro ao carregar arquivo: {error}")
 
     def _ajuda_carregar(self) -> None:
@@ -546,13 +568,16 @@ class Jogo:
 
         # Instância do herói obtida via fábrica central (fora do jogo.py)
         heroi = criar_personagem(self.personagem["arquetipo"], self.personagem["nome"])
+        self.logger.info(f"🎮 Herói instanciado: {heroi.nome} ({heroi.__class__.__name__})")
 
         cenario = (self.missao_config.get("cenario") or "Caverna")
         dificuldade = (self.missao_config.get("dificuldade") or "Fácil")
 
         try:
             engine = Missao(inimigo=inimigo, heroi=heroi, cenario=cenario, dificuldade=dificuldade)
+            self.logger.info("🎯 Engine de missão criada com sucesso")
         except Exception as e:
+            self.logger.error(f"❌ Erro ao criar engine de Missão: {e}")
             print("Erro ao criar engine de Missão:", e)
             return
 
@@ -564,8 +589,96 @@ class Jogo:
 
         if isinstance(resultado, ResultadoMissao):
             if resultado.venceu:
+                self.logger.info(f"🏆 Missão concluída com sucesso! Encontros vencidos: {resultado.encontros_vencidos}")
                 print(f"Missão concluída! Encontros vencidos: {resultado.encontros_vencidos}")
             else:
+                self.logger.warning(f"💀 Missão falhou. Encontros vencidos: {resultado.encontros_vencidos} — {resultado.detalhes}")
                 print(f"Missão falhou. Encontros vencidos: {resultado.encontros_vencidos} — {resultado.detalhes}")
         else:
+            self.logger.info(f"📊 Resultado da missão: {resultado}")
             print("Resultado da missão:", resultado)
+
+    def menu_inventario(self) -> None:
+        """Mostra o inventário do personagem."""
+        self.logger.info("Acessando Menu do inventário...")
+
+        while True:
+            print("\n=== Inventário ===")
+            print("[1] Mostrar todos os itens")
+            print("[2] Remover itens")
+            print("[3] Ajuda")
+            print("[0] Voltar")
+            op = input("> ").strip()
+
+            if op == "1":
+                self._mostrar_inventario()
+            elif op == "2":
+                self._remover_itens_inven()
+            elif op == "3":
+                self._ajuda_inventario()
+            elif op == "0":
+                break
+            else:
+                print("Opção inválida.")
+                
+
+    def _ajuda_inventario(self) -> None:
+        print("\nO inventário mostra todos os itens que você guardou enquanto estava em batalha")
+        print("\nA remoção de itens remove o item pelo nome dele, basta abrir o inventário e digitar o nome do item para remove-lo")
+        
+
+    def _mostrar_inventario(self) -> None:
+        print("\n=== Inventário ===")
+        itens =self.inven.listar_itens()
+        if not itens:
+            print("📦 O inventário está vazio.")
+        else: 
+            for i, item in enumerate(itens, 1):
+                print(f"{i} . {item}")
+
+        self.logger.info("Inventário visualizado")
+
+    def _remover_itens_inven(self) -> None:
+        """Remoção de itens do Inventário"""
+
+        self.logger.info("Iniciando Remoção de Intes do Inventário")
+        
+        if not self.inven.itens:
+            print("O invetário está vazio. Não existe nada para remover")
+            return
+        
+        
+        print("\n======Itens do Inventário ======")
+        for i, item in enumerate(self.inven.itens, 1):
+            print(f"{i} . {item}")
+
+        nome_item = input("Digite o nome do item para remove-lo do Inventário").strip()
+
+        item_encontrado = None
+        nome_item_mm = nome_item.strip().lower()
+        for item in self.inven.itens:
+                if isinstance(item, str):
+                    if item.lower() == nome_item_mm:
+                        item_encontrado = item
+                        break
+
+                elif isinstance(item, dict):
+                    nome = item.get("nome")
+                    if isinstance(nome, str) and nome.lower() == nome_item_mm:
+                        item_encontrado=item
+                        break
+                
+                else:
+                    nome = getattr(item,"nome", None)
+                    if isinstance(nome, str) and nome.lower()==nome_item_mm:
+                        item_encontrado=item
+                        break
+
+        if item_encontrado:
+            self.inven.remover_item(item_encontrado)
+            print(f"Item '{nome_item}' Removido com Sucesso!")
+            self.logger.info(f"Item '{nome_item}' Removido do inventário")
+
+        else:
+            print(f"Item '{nome_item}' não encontrado no inventário.")
+            self.logger.info(f"Tentativa de remover item inexistente: '{nome_item}' ")
