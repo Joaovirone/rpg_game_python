@@ -2,7 +2,7 @@ from __future__ import annotations
 import json
 import os
 from utils.logger import Logger
-
+from models.inventario import Drop_rate, Inventario, Item
 from models.base import Entidade
 from models.inimigo import Inimigo
 from models.personagem import (
@@ -41,6 +41,9 @@ class Jogo:
             "missao": None,       # rótulo/string da missão (simples)
         }
 
+        self.inven = Inventario()
+        self.item = None
+        self.drop_de_itens = None
         self._ultimo_save = None
         self._ultimo_load = None
 
@@ -324,7 +327,7 @@ class Jogo:
             print("[2] Escolher cenário")
             print("[3] Pré-visualizar missão")
             print("[4] Iniciar missão (com d20 e d6)")
-            print("[5] Escolher missão específica")
+            print("[5] Escolher missão")
             print("[9] Ajuda")
             print("[0] Voltar")
             op = input("> ").strip()
@@ -595,10 +598,87 @@ class Jogo:
             self.logger.info(f"📊 Resultado da missão: {resultado}")
             print("Resultado da missão:", resultado)
 
-    def mostrar_inventario(self) -> None:
+    def menu_inventario(self) -> None:
         """Mostra o inventário do personagem."""
-        self.logger.info("Acessando inventário...")
+        self.logger.info("Acessando Menu do inventário...")
+
+        while True:
+            print("\n=== Inventário ===")
+            print("[1] Mostrar todos os itens")
+            print("[2] Remover itens")
+            print("[3] Ajuda")
+            print("[0] Voltar")
+            op = input("> ").strip()
+
+            if op == "1":
+                self._mostrar_inventario()
+            elif op == "2":
+                self._remover_itens_inven()
+            elif op == "3":
+                self._ajuda_inventario()
+            elif op == "0":
+                break
+            else:
+                print("Opção inválida.")
+                
+
+    def _ajuda_inventario(self) -> None:
+        print("\nO inventário mostra todos os itens que você guardou enquanto estava em batalha")
+        print("\nA remoção de itens remove o item pelo nome dele, basta abrir o inventário e digitar o nome do item para remove-lo")
+        
+
+    def _mostrar_inventario(self) -> None:
         print("\n=== Inventário ===")
-        print("Sistema de inventário em desenvolvimento...")
-        print("Em breve: poções, equipamentos e itens especiais!")
+        itens =self.inven.listar_itens()
+        if not itens:
+            print("📦 O inventário está vazio.")
+        else: 
+            for i, item in enumerate(itens, 1):
+                print(f"{i} . {item}")
+
         self.logger.info("Inventário visualizado")
+
+    def _remover_itens_inven(self) -> None:
+        """Remoção de itens do Inventário"""
+
+        self.logger.info("Iniciando Remoção de Intes do Inventário")
+        
+        if not self.inven.itens:
+            print("O invetário está vazio. Não existe nada para remover")
+            return
+        
+        
+        print("\n======Itens do Inventário ======")
+        for i, item in enumerate(self.inven.itens, 1):
+            print(f"{i} . {item}")
+
+        nome_item = input("Digite o nome do item para remove-lo do Inventário").strip()
+
+        item_encontrado = None
+        nome_item_mm = nome_item.strip().lower()
+        for item in self.inven.itens:
+                if isinstance(item, str):
+                    if item.lower() == nome_item_mm:
+                        item_encontrado = item
+                        break
+
+                elif isinstance(item, dict):
+                    nome = item.get("nome")
+                    if isinstance(nome, str) and nome.lower() == nome_item_mm:
+                        item_encontrado=item
+                        break
+                
+                else:
+                    nome = getattr(item,"nome", None)
+                    if isinstance(nome, str) and nome.lower()==nome_item_mm:
+                        item_encontrado=item
+                        break
+
+        if item_encontrado:
+            self.inven.remover_item(item_encontrado)
+            print(f"Item '{nome_item}' Removido com Sucesso!")
+            self.logger.info(f"Item '{nome_item}' Removido do inventário")
+
+        else:
+            print(f"Item '{nome_item}' não encontrado no inventário.")
+            self.logger.info(f"Tentativa de remover item inexistente: '{nome_item}' ")
