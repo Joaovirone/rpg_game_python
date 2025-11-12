@@ -10,7 +10,8 @@ from models.personagem import (
     tick_efeitos_inicio_turno,    # aplica efeitos (fonte única)
 )
 from models.inimigo import Inimigo, generate_horde
-from dado import  d6
+from dado import d6, d20
+from utils.logger import logger
 
 
 @dataclass
@@ -30,7 +31,7 @@ class MissaoHordas:
     def _lista_especiais(self) -> List[Tuple[int, str, int]]:
         """
         Retorna a lista de especiais (id, nome, custo) conforme o nível do herói.
-        - No nível baixo, apenas as 4 “originais” ficam disponíveis (liberadas por nível).
+        - No nível baixo, apenas as 4 "originais" ficam disponíveis (liberadas por nível).
         - Ao upar, as demais aparecem até fechar as 7 especiais (básico + 7 = 8 ações).
         """
         return especiais_do_personagem(self.heroi, considerar_nivel=True)
@@ -61,7 +62,7 @@ class MissaoHordas:
         """
         Retorna: "1" = básico, "2"/"3"/... = especiais, "0" = fugir (raro).
         Heurística:
-         - Se Curandeiro com HP < 35% tenta uma especial “defensiva” entre as disponíveis.
+         - Se Curandeiro com HP < 35% tenta uma especial "defensiva" entre as disponíveis.
          - Caso haja mana para alguma especial disponível, usa a primeira.
          - Senão, ataque básico.
         """
@@ -89,8 +90,9 @@ class MissaoHordas:
     # ----------------- Execução (com auto) -----------------
     def executar(self, auto: bool = False) -> ResultadoMissao:
         encontros_vencidos = 0
-        print("\nIniciando missão...")
-        print(f"Cenário: {self.cenario} | Dificuldade: {self.dificuldade}")
+        logger.info("🚀 Iniciando missão...")
+        logger.info(f"📍 Cenário: {self.cenario} | 🎯 Dificuldade: {self.dificuldade}")
+        logger.info(f"🧙 Herói: {self.heroi.nome} (Nível {self.heroi.nivel})")
 
         try:
             horda = generate_horde(self.cenario, self.dificuldade, getattr(self, "missao", None))
@@ -104,10 +106,16 @@ class MissaoHordas:
             is_boss = getattr(inimigo, "efeitos", {}).get("is_boss", False)
             titulo = f"{inimigo.nome} (CHEFE)" if is_boss else inimigo.nome
             print(f"\n=== Encontro {idx}/{len(horda)} — {inimigo.nome} ===")
+            logger.info(f"⚔️ Iniciando encontro {idx}/{len(horda)}: {titulo}")
+            
+            if is_boss:
+                logger.warning(f"👑 CHEFE ENCONTRADO: {inimigo.nome}!")
+                
             turno = 1
 
             while self.heroi.esta_vivo() and inimigo.esta_vivo():
                 print(f"\n--- Turno {turno} ---")
+                logger.debug(f"🔄 Turno {turno} iniciado")
 
                 # Controle de turno do herói (p/ Execução Pública, etc.)
                 self.heroi.efeitos["turnos"] = self.heroi.efeitos.get("turnos", 0) + 1
@@ -116,6 +124,7 @@ class MissaoHordas:
                 dano_tick = self.heroi.inicio_turno()
                 if dano_tick:
                     print(f"(Efeitos) {self.heroi.nome} sofre {dano_tick} | {self.heroi.barra_hp()}")
+                    logger.info(f"💥 Efeitos em {self.heroi.nome}: {dano_tick} de dano")
 
                 if self.heroi.efeitos.get("nao_pode_atacar", 0) > 0:
                     print(f"{self.heroi.nome} está impossibilitado de agir neste turno!")
@@ -174,6 +183,7 @@ class MissaoHordas:
 
                     elif acao == "0":
                         print("Você recuou da missão!")
+                        logger.warning(f"🏃 {self.heroi.nome} fugiu da missão!")
                         return ResultadoMissao(False, encontros_vencidos, "Fugiu da missão.")
                     else:
                         if not bloqueado:
@@ -184,45 +194,71 @@ class MissaoHordas:
 
                 if not inimigo.esta_vivo():
                     print(f"{inimigo.nome} foi derrotado!")
+                    logger.info(f"💀 {inimigo.nome} foi derrotado!")
                     encontros_vencidos += 1
+                    
+                    # XP por derrotar inimigo
+                    xp_ganho = 10 * self.heroi.nivel
+                    logs_xp = self.heroi.ganhar_xp(xp_ganho)
+                    for log in logs_xp:
+                        logger.info(f"📈 {log}")
+                    
                     break
 
                 # Efeitos no INIMIGO (usa helper central)
                 dano_tick_i = tick_efeitos_inicio_turno(inimigo)
                 if dano_tick_i:
                     print(f"(Efeitos) {inimigo.nome} sofre {dano_tick_i} | {inimigo.barra_hp()}")
+                    logger.info(f"💥 Efeitos em {inimigo.nome}: {dano_tick_i} de dano")
                 if not inimigo.esta_vivo():
                     print(f"{inimigo.nome} caiu pelos efeitos!")
+                    logger.info(f"💀 {inimigo.nome} caiu pelos efeitos!")
                     encontros_vencidos += 1
+                    
+                    # XP por derrotar inimigo
+                    xp_ganho = 10 * self.heroi.nivel
+                    logs_xp = self.heroi.ganhar_xp(xp_ganho)
+                    for log in logs_xp:
+                        logger.info(f"📈 {log}")
+                    
                     break
 
                 if inimigo.efeitos.get("nao_pode_atacar", 0) > 0:
                     print(f"{inimigo.nome} está atordoado e não ataca.")
+                    logger.info(f"😵 {inimigo.nome} está atordoado e não ataca.")
                 else:
                     # Dano do inimigo (Entidade.receber_dano já considera defesa do herói)
-                    dano_in = max(0, d6() + inimigo._atrib.ataque)
+                    dano_in = max(0, d6(f"{inimigo.nome} - Ataque") + inimigo._atrib.ataque)
+                    logger.debug(f"🎲 {inimigo.nome} rola ataque: {dano_in - inimigo._atrib.ataque} + {inimigo._atrib.ataque} = {dano_in}")
 
                     # Invulnerável anula dano direto
                     if self.heroi.efeitos.get("invulneravel_turnos", 0) > 0:
                         print(f"{self.heroi.nome} está invulnerável e não sofre dano.")
+                        logger.info(f"🛡️ {self.heroi.nome} está invulnerável e não sofre dano.")
                         dano_in = 0
 
                     aplicado = self.heroi.receber_dano(dano_in)
                     print(f"{inimigo.nome} causa {aplicado}. Seu HP: {self.heroi.barra_hp()} "
                           f"(Mana: {getattr(self.heroi._atrib, 'mana', 0)})")
+                    
+                    if aplicado > 0:
+                        logger.info(f"⚔️ {inimigo.nome} causa {aplicado} de dano em {self.heroi.nome}")
 
                     # Reflexão de dano
                     if aplicado > 0 and self.heroi.efeitos.get("refletir_dano_turnos", 0) > 0:
                         refle = inimigo.receber_dano(aplicado)
                         print(f"Ventos Revigorantes refletem {refle} ao {inimigo.nome}! HP: {inimigo.barra_hp()}")
+                        logger.info(f"💨 Ventos Revigorantes refletem {refle} de dano para {inimigo.nome}")
 
                 turno += 1
 
             if not self.heroi.esta_vivo():
                 print("\nVocê foi derrotado... Missão falhou.")
+                logger.warning(f"💀 {self.heroi.nome} foi derrotado! Missão falhou.")
                 return ResultadoMissao(False, encontros_vencidos, "Derrotado nas hordas.")
 
         print("\nParabéns! Você venceu todas as hordas da missão!")
+        logger.info(f"🏆 {self.heroi.nome} venceu todas as hordas da missão!")
         return ResultadoMissao(True, encontros_vencidos, "Vitória!")
 
 

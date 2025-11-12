@@ -340,59 +340,29 @@ class Jogo:
                 print("Opção inválida.")
 
     def escolher_missao(self) -> None:
-        """
-        Gera dinamicamente opções de missão com base no cenário selecionado.
-        Usa plan_for_scenario em models.inimigo para descobrir minions/chefe.
-        """
-        # Verifica se cenário/dificuldade foram escolhidos
-        cen = self.missao_config.get("cenario")
-        dif = self.missao_config.get("dificuldade")
-        if not cen or not dif:
-            print("Escolha um cenário e uma dificuldade antes de selecionar uma missão.")
-            return
-
-        # import local (evita import circular no topo)
-        try:
-            from models.inimigo import plan_for_scenario
-        except Exception:
-            print("Erro ao acessar configuração de inimigos. Verifique models.inimigo.")
-            return
-
-        (min1, min2), chefe = plan_for_scenario(cen)
-
-        print("Escolha de Missões (baseadas no cenário):")
-        print(f"[1] Eliminar {min1}")
-        print(f"[2] Eliminar {min2}")
-        print(f"[3] Eliminar CHEFE: {chefe}")
-        print("[4] Horda completa (minions + chefe)")
-        print("[0] Voltar")
-
+        self.logger.info("Iniciando menu Escolha de missões...")
+        print("Escolha de Missões:")
+        print("[1] Matar Ladrões")
+        print("[2] Matar Goblins")
+        print("[3] Matar Golens")
+        print("[4] Matar Elfos")
+        print("[5] Matar Dragões")
         op = input("> ").strip()
 
-        # estimativa simples de recompensa (pode ser refinada)
-        recompensa_base = {"Fácil": 50, "Média": 100, "Difícil": 200}.get(dif, 50)
-
-        if op == "1":
-            miss = {"nome": f"Matar {min1}", "objetivo": f"Eliminar {min1.lower()}s em {cen}",
-                    "recompensa": recompensa_base}
-        elif op == "2":
-            miss = {"nome": f"Matar {min2}", "objetivo": f"Eliminar {min2.lower()}s em {cen}",
-                    "recompensa": int(recompensa_base * 1.2)}
-        elif op == "3":
-            miss = {"nome": f"Matar {chefe}", "objetivo": f"Derrotar o chefe {chefe} em {cen}",
-                    "recompensa": int(recompensa_base * 3)}
-        elif op == "4":
-            miss = {"nome": "Horda Completa", "objetivo": f"Enfrentar todos os inimigos em {cen} (minions + chefe)",
-                    "recompensa": int(recompensa_base * 2)}
-        elif op == "0":
-            print("Voltando...")
-            return
+        # Guardamos apenas o rótulo; a lógica real está em models/missao.py
+        mapa = {
+            "1": "Matar Ladrões",
+            "2": "Matar Goblins",
+            "3": "Matar Golens",
+            "4": "Matar Elfos",
+            "5": "Matar Dragões",
+        }
+        escolha = mapa.get(op)
+        if escolha:
+            self.missao_config["missao"] = escolha
+            print(f"Missão definida: {escolha}")
         else:
             print("Opção inválida.")
-            return
-
-        self.missao_config["missao"] = miss
-        print(f"Missão definida: {miss}")
 
     def _escolher_dificuldade(self) -> None:
         self.logger.info("Iniciando Definição de dificuldade...")
@@ -581,7 +551,7 @@ class Jogo:
         dificuldade = (self.missao_config.get("dificuldade") or "Fácil")
 
         try:
-            engine = Missao(inimigo=inimigo, heroi=heroi, cenario=cenario, dificuldade=dificuldade, missao= self.missao_config.get("missao"))
+            engine = Missao(inimigo=inimigo, heroi=heroi, cenario=cenario, dificuldade=dificuldade)
         except Exception as e:
             print("Erro ao criar engine de Missão:", e)
             return
@@ -599,6 +569,3 @@ class Jogo:
                 print(f"Missão falhou. Encontros vencidos: {resultado.encontros_vencidos} — {resultado.detalhes}")
         else:
             print("Resultado da missão:", resultado)
-
-
-

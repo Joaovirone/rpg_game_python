@@ -27,7 +27,7 @@ def menu() -> None:
         elif op == "5":
             jogo.mostrar_personagem()
         elif op == "6":
-            jogo.mostrar_inventario()
+            jogo.menu_inventario()
         elif op == "0":
             print("Até logo!")
             break
