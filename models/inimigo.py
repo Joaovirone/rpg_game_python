@@ -1,6 +1,8 @@
 from __future__ import annotations
 from typing import Callable, Dict, List, Optional, Union
 from .base import Entidade, Atributos
+from inventario import Item
+from inventario import Drop_rate
 import random
 
 
@@ -21,9 +23,42 @@ class Inimigo(Entidade):
             "bonus_proximo": 0,
         }
 
-# --------- Tabelas de configuração ----------
+    def receber_dano(self, dano):
+        """Reduz a vida do inimigo e verifica se morreu"""
+        self._atrib.vida -= dano
+        print(f"{self.nome} recebeu {dano} de dano! (HP restante: {self._atrib.vida})")
 
-# Dicionário de Inimigos
+
+        if self._atrib.vida <= 0:
+            print(f"💀 {self.nome} foi derrotado!")
+            return self.dropar_item()
+        return None
+
+    def dropar_item(self):
+        """Tenta gerar um drop com base nas chances de raridade"""
+
+        print(f"🎲 {self.nome} está tentando dropar um item...")
+        item_dict = Drop_rate.gerar_drop()
+        if not item_dict:
+            print("❌ Nenhum item dropado.")
+            return None
+
+        item = Item(
+            nome=item_dict["nome"],
+            tipo=item_dict["tipo"],
+            valor=item_dict["valor"],
+            raridade=item_dict["raridade"],
+            dano=item_dict.get("dano"),
+            defesa=item_dict.get("defesa")
+        )
+
+        print(f"🎁 {self.nome} dropou: {item.nome} ({item.raridade})!")
+        return item
+
+
+    # --------- Tabelas de configuração ----------
+
+    # Dicionário de Inimigos
 ENEMY_BASE_STATS: dict[str, tuple[int, int, int]] = {
     # tipo: (vida, ataque, defesa)  -- valores base para NÃO chefes
 
