@@ -3,6 +3,7 @@ from typing import Callable, Dict, List, Optional, Union
 from .base import Entidade, Atributos
 import random
 
+
 class Inimigo(Entidade):
     def __init__(self, nome: str, vida: int, ataque: int, defesa: int):
         super().__init__(nome, Atributos(vida=vida, ataque=ataque, defesa=defesa, mana=0, vida_max=vida))
@@ -92,15 +93,61 @@ def criar_inimigo(tipo: str, dificuldade: str, boss: bool = False) -> Inimigo:
 
     return inimigo
 
-def generate_horde(cenario: str, dificuldade: str) -> list[Inimigo]:
+
+
+def _detectar_alvo_da_missao(missao: Optional[Dict]) -> Optional[Dict]:
     """
-    Monta a fila/horda: minions do tipo1, minions do tipo2, e por fim o chefe.
+    Retorna um dicionario com o alvo da missao,
+    caso o usuário queira selecionar o que enfrentar primeiro.
     """
+    if not missao:
+        return None
+    texto = ""
+    if isinstance(missao, dict):
+        texto = (missao.get("nome", "") + " " + missao.get("objetivo", "")).strip().lower()
+    else:
+        texto = str(missao).lower()
+    # prioriza nomes maiores
+    nomes = sorted(ENEMY_BASE_STATS.keys(), key=lambda s: -len(s))
+    for nome in nomes:
+        if nome.lower() in texto:
+            if "chefe" in texto or "boss" in texto or "derrotar" in texto:
+                return {"tipo": nome, "modo": "chefe"}
+            return {"tipo": nome, "modo": "minion"}
+    if "horda" in texto or "todos" in texto or "completa" in texto:
+        return {"tipo": None, "modo": "horda"}
+    return None
+
+def generate_horde(cenario: str, dificuldade: str, missao: Optional[Dict] = None) -> List[Inimigo]:
+    alvo = _detectar_alvo_da_missao(missao)
+
+    # horda completa (padrão)
+    if alvo is None or alvo.get("modo") == "horda":
+        (m1, m2), chefe = plan_for_scenario(cenario)
+        qtd1, qtd2 = MINION_COUNTS.get(dificuldade, MINION_COUNTS["Fácil"])
+        fila: List[Inimigo] = []
+        fila += [criar_inimigo(m1, dificuldade) for _ in range(qtd1)]
+        fila += [criar_inimigo(m2, dificuldade) for _ in range(qtd2)]
+        fila += [criar_inimigo(chefe, dificuldade, boss=True)]
+        return fila
+
+    # apenas chefe
+    if alvo.get("modo") == "chefe":
+        (_, _), chefe_padrao = plan_for_scenario(cenario)
+        chefe_desejado = alvo.get("tipo") or chefe_padrao
+        return [criar_inimigo(chefe_desejado, dificuldade, boss=True)]
+
+    # apenas minion pedido -> gera 1 (mude para qtd se preferir)
+    if alvo.get("modo") == "minion":
+        tipo = alvo.get("tipo")
+        return [criar_inimigo(tipo, dificuldade)]
+
+    # fallback (padrão)
     (m1, m2), chefe = plan_for_scenario(cenario)
     qtd1, qtd2 = MINION_COUNTS.get(dificuldade, MINION_COUNTS["Fácil"])
-    fila: list[Inimigo] = []
+    fila: List[Inimigo] = []
     fila += [criar_inimigo(m1, dificuldade) for _ in range(qtd1)]
     fila += [criar_inimigo(m2, dificuldade) for _ in range(qtd2)]
-    fila += [criar_inimigo(chefe, dificuldade, boss=True)] # enfrentar chefao após os minions
+    fila += [criar_inimigo(chefe, dificuldade, boss=True)]
     return fila
 

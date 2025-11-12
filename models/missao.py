@@ -230,9 +230,10 @@ class Missao(MissaoHordas):
     """
     Estrutura da missão com mecânica de combate (usa helpers centrais).
     """
-    def __init__(self, inimigo: Inimigo, heroi: Personagem, cenario: str, dificuldade: str):
+    def __init__(self, inimigo: Inimigo, heroi: Personagem, cenario: str, dificuldade: str, missao: dict | None = None):
         super().__init__(heroi, cenario, dificuldade)
         self.inimigo = inimigo
+        self.missao = missao
 
         # Representação leve das missões (futuro: recompensas, objetivos, etc.)
         self.missoes: List[Dict] = [
