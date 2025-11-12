@@ -118,6 +118,29 @@ def _detectar_alvo_da_missao(missao: Optional[Dict]) -> Optional[Dict]:
         return {"tipo": None, "modo": "horda"}
     return None
 
+def _detectar_alvo_da_missao(missao: Optional[Dict]) -> Optional[Dict]:
+    """
+    Retorna um dicionario com o alvo da missao,
+    caso o usuário queira selecionar o que enfrentar primeiro.
+    """
+    if not missao:
+        return None
+    texto = ""
+    if isinstance(missao, dict):
+        texto = (missao.get("nome", "") + " " + missao.get("objetivo", "")).strip().lower()
+    else:
+        texto = str(missao).lower()
+    # prioriza nomes maiores
+    nomes = sorted(ENEMY_BASE_STATS.keys(), key=lambda s: -len(s))
+    for nome in nomes:
+        if nome.lower() in texto:
+            if "chefe" in texto or "boss" in texto or "derrotar" in texto:
+                return {"tipo": nome, "modo": "chefe"}
+            return {"tipo": nome, "modo": "minion"}
+    if "horda" in texto or "todos" in texto or "completa" in texto:
+        return {"tipo": None, "modo": "horda"}
+    return None
+
 def generate_horde(cenario: str, dificuldade: str, missao: Optional[Dict] = None) -> List[Inimigo]:
     alvo = _detectar_alvo_da_missao(missao)
 
@@ -150,4 +173,5 @@ def generate_horde(cenario: str, dificuldade: str, missao: Optional[Dict] = None
     fila += [criar_inimigo(m2, dificuldade) for _ in range(qtd2)]
     fila += [criar_inimigo(chefe, dificuldade, boss=True)]
     return fila
+
 
