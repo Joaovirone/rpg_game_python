@@ -301,7 +301,7 @@ class Jogo:
         print("\nPersonagem configurado!")
         print(f"Nome: {self.personagem['nome']} | Arquétipo: {self.personagem['arquetipo']}")
         self.logger.info(f"🎉 Personagem criado: {self.personagem['nome']} ({self.personagem['arquetipo']})")
-        print("(Obs.: a instância será criada apenas ao iniciar a missão.)")
+
         # Mostra o preview imediatamente (sem manter instância)
         self.mostrar_personagem()
 
@@ -310,7 +310,7 @@ class Jogo:
         print("\nAjuda — Criar Personagem")
         print("- Defina um nome e um arquétipo.")
         print("- O jogo NÃO cria a instância aqui; isso só acontece ao iniciar a missão.")
-        print("- As classes têm atributos/habilidades diferentes (definidos em models.personagem).")
+        print("- As classes têm atributos/habilidades diferentes.")
 
     # ================================ MISSÃO ===============================
 
@@ -319,14 +319,14 @@ class Jogo:
 
         while True:
             print("\n=== Missão ===")
-            print(f"Dificuldade atual: {self.missao_config['dificuldade'] or '(não definida)'}")
+            print(f"Dificuldade atual: {self.missao_config['dificuldade'] or '(não definido)'}")
             print(f"Cenário atual:     {self.missao_config['cenario'] or '(não definido)'}")
-            print(f"Missão atual:      {self.missao_config['missao'] or '(não definida)'}")
+            print(f"Missão atual:      {self.missao_config['missao'] or '(não definido)'}")
             print()
             print("[1] Escolher dificuldade")
             print("[2] Escolher cenário")
             print("[3] Pré-visualizar missão")
-            print("[4] Iniciar missão (com d20 e d6)")
+            print("[4] Iniciar missão")
             print("[5] Escolher missão")
             print("[9] Ajuda")
             print("[0] Voltar")
@@ -339,7 +339,7 @@ class Jogo:
             elif op == "3":
                 self._preview_missao()
             elif op == "4":
-                self._iniciar_missao_placeholder()
+                self._iniciar_missao()
             elif op == "5":
                 self.escolher_missao()
             elif op == "9":
@@ -371,11 +371,13 @@ class Jogo:
 
         (min1, min2), chefe = plan_for_scenario(cen)
 
-        print("Escolha de Missões (baseadas no cenário):")
+        print("Escolha de Missões:")
+        print("⚠️ As escolhas das missões tem como finalidade o usuário escolher qual inimigo combater primeiro!")
+        print()
         print(f"[1] Eliminar {min1}")
         print(f"[2] Eliminar {min2}")
         print(f"[3] Eliminar CHEFE: {chefe}")
-        print("[4] Horda completa (minions + chefe)")
+        print("[4] Horda completa (Minions + Chefe)")
         print("[0] Voltar")
 
         op = input("> ").strip()
@@ -444,7 +446,6 @@ class Jogo:
         print(f"- Dificuldade: {self.missao_config['dificuldade'] or '(não definida)'}")
         print(f"- Cenário:     {self.missao_config['cenario'] or '(não definido)'}")
         print("- Hordas e chefe serão gerados conforme cenário e dificuldade.")
-        print("  (A lógica fica em missão.py/inimigo.py; o herói é criado só ao iniciar.)")
 
     def _ajuda_missao(self) -> None:
         self.logger.info("Iniciando menu Ajuda de missões...")
@@ -583,7 +584,7 @@ class Jogo:
 
     # ========================= INICIAR MISSÃO ==============================
 
-    def _iniciar_missao_placeholder(self, inimigo: Entidade | None = None) -> None:
+    def _iniciar_missao(self, inimigo: Entidade | None = None) -> None:
         self.logger.info("Iniciando Missões...")
         if not self.personagem.get("nome") or not self.personagem.get("arquetipo"):
             print("Crie/configure um personagem antes de iniciar uma missão.")

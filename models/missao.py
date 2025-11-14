@@ -3,13 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Tuple, Dict, Optional
 
-from models.personagem import (
+from .personagem import (
     Personagem,
     especiais_do_personagem,      # lista (id, nome, custo) conforme o NÍVEL
     custo_ataque_basico,          # custo do ataque básico por classe
     tick_efeitos_inicio_turno,    # aplica efeitos (fonte única)
 )
-from models.inimigo import Inimigo, generate_horde
+from .inimigo import Inimigo, generate_horde
 from dado import d6, d20
 from utils.logger import logger
 
