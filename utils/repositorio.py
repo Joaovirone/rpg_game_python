@@ -1,5 +1,7 @@
 from __future__ import annotations
 from typing import Any
+import os
+import json
 
 
 class Repositorio:
@@ -14,3 +16,4 @@ class Repositorio:
     def carregar(self) -> dict[str, Any]:
         print("(simulado) carregar: sem dados reais nesta base.")
         return {}
+

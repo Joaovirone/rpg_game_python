@@ -1,8 +1,8 @@
 from __future__ import annotations
 from typing import Callable, Dict, List, Optional, Union
 from .base import Entidade, Atributos
-from inventario import Item
-from inventario import Drop_rate
+from .inventario import Item
+from .inventario import Drop_rate
 import random
 
 
