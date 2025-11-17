@@ -1,62 +1,114 @@
-# 🧭 Guia de Prefixos para Commits (Conventional Commits)
+# 🧭 Guia Completo de Comandos Git com Conventional Commits
 
 Padronizar suas mensagens de commit ajuda a manter o histórico do projeto limpo, organizado e fácil de entender.
 
-Abaixo estão os principais **prefixos** e seus significados:
+---
+
+## 🏷️ Padrão de Conventional Commits (Prefixos)
+
+| Prefixo | Tipo de Mudança | Quando Usar | Exemplo |
+
+| :--- | :--- | :--- | :--- |
+
+| **feat:** | Nova funcionalidade (MINOR) | Adiciona algo novo ao código ou projeto. | `feat: adicionar componente de login` |
+
+| **fix:** | Correção de erro (PATCH) | Corrige um bug ou erro existente. | `fix: corrigir erro de autenticação` |
+
+| **docs:** | Documentação | Altera ou adiciona README, comentários, docs. | `docs: atualizar instruções de instalação` |
+
+| **style:** | Estilo (sem alterar funcionalidade) | Ajustes visuais, formatação, espaços, vírgulas. | `style: formatar código com prettier` |
+
+| **refactor:** | Refatoração de código | Melhora o código sem mudar o comportamento. | `refactor: otimizar função de login` |
+
+| **perf:** | Melhoria de performance | Torna o sistema mais rápido ou eficiente. | `perf: melhorar tempo de carregamento` |
+
+| **test:** | Testes | Cria, ajusta ou remove testes. | `test: adicionar testes para componente de login` |
+
+| **chore:** | Tarefas de manutenção | Mudanças que não afetam o código de produção (build, dependências, configs). | `chore: atualizar dependências do projeto` |
+
+| **build:** | Processo de build ou dependências | Muda algo que afeta o build (webpack, npm, etc). | `build: adicionar configuração do webpack` |
+
+| **ci:** | Integração contínua | Altera pipelines, GitHub Actions, etc. | `ci: ajustar workflow de deploy` |
+
+| **revert:** | Reverter commit anterior | Desfaz uma alteração anterior. | `revert: reverter commit 4f2a1b7` |
 
 ---
 
-| Prefixo | Tipo de Mudança | Quando Usar | Exemplo de Uso |
-|----------|------------------|--------------|----------------|
-| **feat:** | Nova funcionalidade | Sempre que você adiciona algo novo ao código ou projeto | `feat: adicionar componente de login` |
+## 💡 Dicas e Boas Práticas
 
-| **fix:** | Correção de erro | Quando você corrige um bug ou erro existente | `fix: corrigir erro de autenticação` |
+* Sempre use **letras minúsculas** nos prefixos.
 
-| **docs:** | Documentação | Quando altera ou adiciona README, comentários, docs etc | `docs: atualizar instruções de instalação` |
+* Use o **imperativo** na mensagem (ex: "adicionar", não "adicionado").
 
-| **style:** | Estilo (sem alterar funcionalidade) | Ajustes visuais, formatação, espaços, vírgulas etc | `style: formatar código com prettier` |
+* Mantenha a mensagem curta e direta (máx. 50 caracteres na primeira linha).
 
-| **refactor:** | Refatoração de código | Quando melhora o código sem mudar o comportamento | `refactor: otimizar função de login` |
-
-| **perf:** | Melhoria de performance | Quando torna o sistema mais rápido ou eficiente | `perf: melhorar tempo de carregamento da página` |
-
-| **test:** | Testes | Quando cria, ajusta ou remove testes | `test: adicionar testes para componente de login` |
-
-| **chore:** | Tarefas de manutenção | Mudanças que não afetam o código de produção (build, dependências, configs) | `chore: atualizar dependências do projeto` |
-
-| **build:** | Processo de build ou dependências | Quando muda algo que afeta o build (webpack, npm, vite, etc) | `build: adicionar configuração do webpack` |
-
-| **ci:** | Integração contínua | Quando altera pipelines, GitHub Actions, etc | `ci: ajustar workflow de deploy no GitHub Actions` |
-
-| **revert:** | Reverter commit anterior | Quando desfaz uma alteração anterior | `revert: reverter commit 4f2a1b7` |
+* **BREAKING CHANGE (Major Version):** Adicione um `!` após o prefixo se houver quebra de compatibilidade. Ex: `feat!: alterar assinatura da função`.
 
 ---
 
-## 💡 Dicas de Boas Práticas
+## 🛠️ Comandos Essenciais do Git
 
-- Sempre use **letras minúsculas** nos prefixos.  
-- Use o **imperativo** na mensagem (ex: "adicionar", não "adicionado").  
-- Mantenha a mensagem curta e direta.  
-- Evite commits genéricos como `update` ou `changes`.
+### 1. Preparação e Mudança de Branch
 
----
+| Comando | Descrição |
+| :--- | :--- |
 
-## 🧩 Exemplo de Fluxo de Trabalho
+| `git status` | Exibe o estado da área de trabalho. |
 
-```bash
-# Atualizar a branch main
-git checkout main
-git pull origin main
+| `git branch` | Lista as branches locais. |
 
-# Voltar para sua branch
-git checkout minha-branch
+| `git checkout -b <nome-branch>` | Cria e muda para uma nova branch. |
 
-# Mesclar com a main atualizada
-git merge main
+| `git checkout <nome-branch>` | Alterna para uma branch existente. |
 
-# Adicionar e comitar mudanças
-git add .
-git commit -m "feat: adicionar botão de logout"
+### 2. Sincronização e Mesclagem
 
-# Enviar para o repositório remoto
-git push origin minha-branch
+| Comando | Descrição |
+
+| :--- | :--- |
+
+| `git pull origin main` | Baixa e mescla as últimas alterações da `main` remota. |
+
+| `git merge main` | Mescla as alterações da `main` na sua branch atual. |
+
+| `git merge --abort` | Aborta o processo de merge em caso de conflito. |
+
+### 3. Commit e Staging
+
+| Comando | Descrição |
+
+| :--- | :--- |
+
+| `git add .` | Adiciona **todos** os arquivos modificados e novos à área de staging. |
+
+| `git add <caminho/arquivo>` | Adiciona um arquivo específico. |
+
+| `git reset <arquivo>` | Remove um arquivo da área de staging (desfaz o `git add`). |
+
+| `git commit -m "<prefixo>: <mensagem>"` | Cria o commit padronizado. |
+
+| **Exemplo:** | `git commit -m "feat: adicionar botão de logout"` |
+
+### 4. Correção e Histórico
+
+| Comando | Descrição |
+
+| :--- | :--- |
+
+| `git commit --amend` | Altera a mensagem do último commit (ou adiciona arquivos a ele). |
+
+| `git log --oneline` | Exibe o histórico de commits resumido. |
+
+| `git reset --soft HEAD~1` | Desfaz o último commit, **mantendo as alterações** na área de staging. |
+
+| `git reset --hard HEAD~1` | Desfaz o último commit, **descartando as alterações** (CUIDADO!). |
+
+### 5. Envio Remoto
+
+| Comando | Descrição |
+
+| :--- | :--- |
+
+| `git push origin <sua-branch>` | Envia os commits locais para o repositório remoto. |
+
+| `git push -f` | Força o envio, sobrescrevendo o histórico remoto (necessário após `amend` ou `rebase`). **Use com cautela.** |
