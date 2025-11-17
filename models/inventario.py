@@ -110,11 +110,11 @@ class Drop_rate:
         "lendário": 0.1,
     }
 
-    def __init__(self, personagem: Personagem):
+    def __init__(self, personagem):
         self.personagem = personagem
 
     def calcular_drop_rate(self, raridade: str) -> float:
-        base_rate = 0.10
+        base_rate = 0.50
         level_modifier = self.personagem.nivel * 0.01
         raridade_modifier = self.RARIDADE_MODIFICADOR.get(raridade, 1.0)
 

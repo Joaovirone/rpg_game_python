@@ -318,11 +318,6 @@ class Jogo:
         self.logger.info("Iniciando menu Missões...")
 
         while True:
-            print("\n=== Missão ===")
-            print(f"Dificuldade atual: {self.missao_config['dificuldade'] or '(não definido)'}")
-            print(f"Cenário atual:     {self.missao_config['cenario'] or '(não definido)'}")
-            print(f"Missão atual:      {self.missao_config['missao'] or '(não definido)'}")
-            print()
             print("[1] Escolher dificuldade")
             print("[2] Escolher cenário")
             print("[3] Pré-visualizar missão")
@@ -405,7 +400,7 @@ class Jogo:
             return
 
         self.missao_config["missao"] = miss
-        print(f"Missão definida: {miss}")
+        
 
     def _escolher_dificuldade(self) -> None:
         self.logger.info("Iniciando Definição de dificuldade...")
@@ -442,10 +437,35 @@ class Jogo:
 
     def _preview_missao(self) -> None:
         self.logger.info("Iniciando Preview de Missões")
-        print("\nPré-visualização da Missão")
-        print(f"- Dificuldade: {self.missao_config['dificuldade'] or '(não definida)'}")
-        print(f"- Cenário:     {self.missao_config['cenario'] or '(não definido)'}")
-        print("- Hordas e chefe serão gerados conforme cenário e dificuldade.")
+
+        borda = "=" * 35
+
+        dificuldade = self.missao_config['dificuldade'] or '(não definida)'
+        cenario = self.missao_config['cenario'] or '(não definido)'
+        missao = self.missao_config["missao"] or '(não definido)'
+
+        missao_config_valor = self.missao_config["missao"]
+        
+        if isinstance(missao_config_valor, dict):
+            nome_missao = missao_config_valor.get('nome', 'Missão Não Definida')
+        else:
+            nome_missao = missao_config_valor or 'N/A'
+
+        print(f"\n{borda}")
+        print("📜 **PRÉ-VISUALIZAÇÃO DA MISSÃO**")
+        print(f"{borda}")
+        
+        
+        print(f"| 💪 Dificuldade: **{dificuldade.capitalize()}**")
+        print(f"| 📍 Cenário:     **{cenario.capitalize()}**")
+        print(f"| 🎯 Missão:      **{nome_missao.capitalize()}**")
+        print("")
+       
+        print("-" * 35)
+        print("ℹ️ OBS: Hordas e chefe serão gerados conforme cenário e dificuldade.")
+        print(f"{borda}")
+
+        
 
     def _ajuda_missao(self) -> None:
         self.logger.info("Iniciando menu Ajuda de missões...")
@@ -673,7 +693,7 @@ class Jogo:
         else:
             self.logger.info(f"📊 Resultado da missão: {resultado}")
             print("Resultado da missão:", resultado)
-
+    #---------------------MENU INVENTÁRIO ------------------------------
     def menu_inventario(self) -> None:
         """Mostra o inventário do personagem."""
         self.logger.info("Acessando Menu do inventário...")
@@ -705,6 +725,7 @@ class Jogo:
 
     def _mostrar_inventario(self) -> None:
         print("\n=== Inventário ===")
+        self.logger.info("Inventário visualizado")
         itens =self.inven.listar_itens()
         if not itens:
             print("📦 O inventário está vazio.")
@@ -712,7 +733,7 @@ class Jogo:
             for i, item in enumerate(itens, 1):
                 print(f"{i} . {item}")
 
-        self.logger.info("Inventário visualizado")
+        
 
     def _remover_itens_inven(self) -> None:
         """Remoção de itens do Inventário"""

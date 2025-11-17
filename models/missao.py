@@ -306,7 +306,7 @@ class Missao(MissaoHordas):
             self.missao_4(),
             self.missao_5(),
         ]
-        self.missao_atual = 0
+        self.missao_atual = self.missoes[0]
 
     # Retornando dicts para permitir evolução futura
     def missao_1(self) -> Dict:
