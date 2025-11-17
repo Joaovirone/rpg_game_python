@@ -33,6 +33,10 @@ class Jogo:
         self.personagem = {
             "nome": None,         # str
             "arquetipo": None,    # "Guerreiro" | "Mago" | "Arqueiro" | "Curandeiro"
+            "nivel": 1,           # int
+            "xp": 0,              # int
+            "atributos": None,    # dict com vida, vida_max, ataque, defesa, mana
+            "ataque_magico": 0,   # int
         }
 
         self.missao_config = {
@@ -121,6 +125,21 @@ class Jogo:
             self.personagem["arquetipo"],
             self.personagem["nome"]
         )
+        
+        # Restaura progresso salvo se existir
+        if self.personagem.get("nivel", 1) > 1 or self.personagem.get("xp", 0) > 0:
+            heroi_tmp.nivel = self.personagem.get("nivel", 1)
+            heroi_tmp.xp = self.personagem.get("xp", 0)
+            if self.personagem.get("atributos"):
+                attrs = self.personagem["atributos"]
+                heroi_tmp._atrib.vida = attrs.get("vida", heroi_tmp._atrib.vida)
+                heroi_tmp._atrib.vida_max = attrs.get("vida_max", heroi_tmp._atrib.vida_max)
+                heroi_tmp._atrib.ataque = attrs.get("ataque", heroi_tmp._atrib.ataque)
+                heroi_tmp._atrib.defesa = attrs.get("defesa", heroi_tmp._atrib.defesa)
+                heroi_tmp._atrib.mana = attrs.get("mana", heroi_tmp._atrib.mana)
+            if self.personagem.get("ataque_magico") is not None:
+                heroi_tmp.ataque_magico = self.personagem.get("ataque_magico", 0)
+        
         stats = preview_personagem(heroi_tmp)
 
         # ---- Cabeçalho / Stats ----
@@ -520,6 +539,12 @@ class Jogo:
             "personagem": self.personagem,
             "missao_config": self.missao_config,
         }
+        
+        # Garante que dados de progresso estejam salvos
+        if "nivel" not in self.personagem:
+            self.personagem["nivel"] = 1
+        if "xp" not in self.personagem:
+            self.personagem["xp"] = 0
         # serializar inventário (lista de dicts)
         try:
             itens_serializados = []
@@ -656,6 +681,22 @@ class Jogo:
         # Instância do herói obtida via fábrica central (fora do jogo.py)
         heroi = criar_personagem(self.personagem["arquetipo"], self.personagem["nome"])
         self.logger.info(f"🎮 Herói instanciado: {heroi.nome} ({heroi.__class__.__name__})")
+        
+        # Restaura progresso salvo (nível, XP, atributos)
+        if self.personagem.get("nivel", 1) > 1 or self.personagem.get("xp", 0) > 0:
+            heroi.nivel = self.personagem.get("nivel", 1)
+            heroi.xp = self.personagem.get("xp", 0)
+            if self.personagem.get("atributos"):
+                attrs = self.personagem["atributos"]
+                heroi._atrib.vida = attrs.get("vida", heroi._atrib.vida)
+                heroi._atrib.vida_max = attrs.get("vida_max", heroi._atrib.vida_max)
+                heroi._atrib.ataque = attrs.get("ataque", heroi._atrib.ataque)
+                heroi._atrib.defesa = attrs.get("defesa", heroi._atrib.defesa)
+                heroi._atrib.mana = attrs.get("mana", heroi._atrib.mana)
+            if self.personagem.get("ataque_magico") is not None:
+                heroi.ataque_magico = self.personagem.get("ataque_magico", 0)
+            self.logger.info(f"📈 Progresso restaurado: Nível {heroi.nivel}, XP {heroi.xp}")
+        
         # sincroniza inventário global do jogo com o herói (persistência entre missões)
         try:
             if hasattr(heroi, "inventario"):
@@ -693,6 +734,18 @@ class Jogo:
         else:
             self.logger.info(f"📊 Resultado da missão: {resultado}")
             print("Resultado da missão:", resultado)
+        
+        # Salva progresso do personagem após a missão
+        self.personagem["nivel"] = heroi.nivel
+        self.personagem["xp"] = heroi.xp
+        self.personagem["atributos"] = {
+            "vida": heroi._atrib.vida,
+            "vida_max": heroi._atrib.vida_max,
+            "ataque": heroi._atrib.ataque,
+            "defesa": heroi._atrib.defesa,
+            "mana": heroi._atrib.mana,
+        }
+        self.personagem["ataque_magico"] = getattr(heroi, "ataque_magico", 0)
     #---------------------MENU INVENTÁRIO ------------------------------
     def menu_inventario(self) -> None:
         """Mostra o inventário do personagem."""

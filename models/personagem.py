@@ -201,12 +201,47 @@ class Personagem(Entidade):
             self.xp -= self._xp_para_proximo()
             self.nivel += 1
 
-            # progressão simples
-            self._atrib.vida_max = (self._atrib.vida_max or self._atrib.vida) + 5
-            self._atrib.vida = min(self._atrib.vida_max, self._atrib.vida + 5)
-            self._atrib.ataque += 1
-            self._atrib.defesa += 1
-            self._atrib.mana += 5
+            classe_nome = self.__class__.__name__
+            vida_base = self._atrib.vida_max or self._atrib.vida
+            
+            if classe_nome == "Guerreiro":
+                bonus_vida = 8
+                bonus_ataque = 2
+                bonus_defesa = 2
+                bonus_mana = 3
+                bonus_magia = 0
+            elif classe_nome == "Mago":
+                bonus_vida = 4
+                bonus_ataque = 1
+                bonus_defesa = 1
+                bonus_mana = 8
+                bonus_magia = 2
+            elif classe_nome == "Arqueiro":
+                bonus_vida = 6
+                bonus_ataque = 2
+                bonus_defesa = 1
+                bonus_mana = 5
+                bonus_magia = 1
+            elif classe_nome == "Curandeiro":
+                bonus_vida = 5
+                bonus_ataque = 1
+                bonus_defesa = 1
+                bonus_mana = 7
+                bonus_magia = 2
+            else:
+                bonus_vida = 5
+                bonus_ataque = 1
+                bonus_defesa = 1
+                bonus_mana = 5
+                bonus_magia = 0
+
+            self._atrib.vida_max = vida_base + bonus_vida
+            self._atrib.vida = min(self._atrib.vida_max, self._atrib.vida + bonus_vida)
+            self._atrib.ataque += bonus_ataque
+            self._atrib.defesa += bonus_defesa
+            self._atrib.mana += bonus_mana
+            if hasattr(self, "ataque_magico"):
+                self.ataque_magico += bonus_magia
 
             if self.nivel in (2, 4, 6):
                 logs.append(f"Subiu para o nível {self.nivel}! Nova habilidade desbloqueada.")

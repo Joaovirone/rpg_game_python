@@ -212,7 +212,17 @@ class MissaoHordas:
                         logger.info("❌ Nenhum item dropado.")
 
                     # XP por derrotar inimigo
-                    xp_ganho = 10 * self.heroi.nivel
+                    xp_base = 10 * self.heroi.nivel
+                    if is_boss:
+                        xp_ganho = int(xp_base * 3.5)
+                    else:
+                        xp_ganho = xp_base
+                    
+                    if self.dificuldade == "Média":
+                        xp_ganho = int(xp_ganho * 1.5)
+                    elif self.dificuldade == "Difícil":
+                        xp_ganho = int(xp_ganho * 2.0)
+                    
                     logs_xp = self.heroi.ganhar_xp(xp_ganho)
                     for log in logs_xp:
                         logger.info(f"📈 {log}")
@@ -243,7 +253,18 @@ class MissaoHordas:
                         logger.info("❌ Nenhum item dropado.")
                     
                     # XP por derrotar inimigo
-                    xp_ganho = 10 * self.heroi.nivel
+                    xp_base = 10 * self.heroi.nivel
+                    is_boss_efeito = getattr(inimigo, "efeitos", {}).get("is_boss", False)
+                    if is_boss_efeito:
+                        xp_ganho = int(xp_base * 3.5)
+                    else:
+                        xp_ganho = xp_base
+                    
+                    if self.dificuldade == "Média":
+                        xp_ganho = int(xp_ganho * 1.5)
+                    elif self.dificuldade == "Difícil":
+                        xp_ganho = int(xp_ganho * 2.0)
+                    
                     logs_xp = self.heroi.ganhar_xp(xp_ganho)
                     for log in logs_xp:
                         logger.info(f"📈 {log}")
