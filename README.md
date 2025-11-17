@@ -306,3 +306,4 @@ Desenvolvido João Vitor Pereira, Pedro Henrique Santos Silva, Pedro Henrique Ol
 ## 🙏 Agradecimentos
 
 - Ao professor Mariano, pelo empenho e ensinamentos em aula.
+
