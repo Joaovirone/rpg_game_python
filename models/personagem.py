@@ -4,6 +4,7 @@ from typing import Optional, List, Dict
 from dado import d6, d20, rolar_multiplos_dados, somar_dados
 from utils.logger import logger
 from .base import Atributos, Entidade  # mantém compat: from models.personagem import Entidade
+from .inventario import Inventario
 
 # ========================== EFEITOS / TICKS ===============================
 
@@ -129,6 +130,8 @@ class Personagem(Entidade):
         self.ataque_magico: int = ataque_magico
         self.nivel: int = 1
         self.xp: int = 0
+        self.inventario = Inventario()
+
         self.efeitos: Dict[str, int | bool] = {
             # DOTs
             "eletro_turnos": 0,

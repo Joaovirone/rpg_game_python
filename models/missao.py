@@ -2,7 +2,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Tuple, Dict, Optional
-
+from .inventario import Item, Inventario,Loot,Drop_rate
 from .personagem import (
     Personagem,
     especiais_do_personagem,      # lista (id, nome, custo) conforme o NÍVEL
@@ -197,6 +197,20 @@ class MissaoHordas:
                     logger.info(f"💀 {inimigo.nome} foi derrotado!")
                     encontros_vencidos += 1
                     
+
+                    drop_system = Drop_rate(self.heroi)
+                    item = drop_system.tentar_drop()
+
+                    if item:
+                        print(f"🎁 {inimigo.nome} dropou: {item.nome} ({item.raridade})!")
+                        logger.info(f"🎁 Item dropado: {item.nome} ({item.raridade})")
+
+                        # ⬇️ AQUI: adiciona ao inventário do herói
+                        self.heroi.inventario.adicionar_item(item)
+                    else:
+                        print("❌ Nenhum item dropado.")
+                        logger.info("❌ Nenhum item dropado.")
+
                     # XP por derrotar inimigo
                     xp_ganho = 10 * self.heroi.nivel
                     logs_xp = self.heroi.ganhar_xp(xp_ganho)
@@ -214,6 +228,19 @@ class MissaoHordas:
                     print(f"{inimigo.nome} caiu pelos efeitos!")
                     logger.info(f"💀 {inimigo.nome} caiu pelos efeitos!")
                     encontros_vencidos += 1
+
+                    drop_system = Drop_rate(self.heroi)
+                    item = drop_system.tentar_drop()
+
+                    if item:
+                        print(f"🎁 {inimigo.nome} dropou: {item.nome} ({item.raridade})!")
+                        logger.info(f"🎁 Item dropado: {item.nome} ({item.raridade})")
+
+                        # ⬇️ AQUI: adiciona ao inventário do herói
+                        self.heroi.inventario.adicionar_item(item)
+                    else:
+                        print("❌ Nenhum item dropado.")
+                        logger.info("❌ Nenhum item dropado.")
                     
                     # XP por derrotar inimigo
                     xp_ganho = 10 * self.heroi.nivel

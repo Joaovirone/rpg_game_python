@@ -500,6 +500,28 @@ class Jogo:
             "personagem": self.personagem,
             "missao_config": self.missao_config,
         }
+        # serializar inventário (lista de dicts)
+        try:
+            itens_serializados = []
+            for it in (self.inven.itens or []):
+                if isinstance(it, Item):
+                    itens_serializados.append({
+                        "nome": getattr(it, "nome", None),
+                        "tipo": getattr(it, "tipo", None),
+                        "valor": getattr(it, "valor", None),
+                        "raridade": getattr(it, "raridade", None),
+                        "dano": getattr(it, "dano", None),
+                        "defesa": getattr(it, "defesa", None),
+                        "cura": getattr(it, "cura", None),
+                    })
+                elif isinstance(it, dict):
+                    itens_serializados.append(it)
+                else:
+                    # fallback: stringify
+                    itens_serializados.append({"nome": str(it)})
+            dados["inventario"] = itens_serializados
+        except Exception:
+            pass
         try:
             with open(nome_arquivo, "w", encoding="utf-8") as f:
                 json.dump(dados, f, indent=4, ensure_ascii=False)
@@ -573,6 +595,20 @@ class Jogo:
                 dados = json.load(f)
             self.personagem = dados.get("personagem", self.personagem)
             self.missao_config = dados.get("missao_config", self.missao_config)
+            # carregar inventário serializado
+            itens = dados.get("inventario")
+            if itens is not None:
+                try:
+                    self.inven = Inventario()
+                    restored = []
+                    for it in itens:
+                        if isinstance(it, dict):
+                            restored.append(Item(**it))
+                        else:
+                            restored.append(it)
+                    self.inven.itens = restored
+                except Exception:
+                    self.logger.error("Erro ao restaurar inventário do save.")
             self.logger.info("✅ Dados do jogo carregados com sucesso")
         except Exception as error:
             self.logger.error(f"❌ Erro ao carregar arquivo: {error}")
@@ -600,6 +636,15 @@ class Jogo:
         # Instância do herói obtida via fábrica central (fora do jogo.py)
         heroi = criar_personagem(self.personagem["arquetipo"], self.personagem["nome"])
         self.logger.info(f"🎮 Herói instanciado: {heroi.nome} ({heroi.__class__.__name__})")
+        # sincroniza inventário global do jogo com o herói (persistência entre missões)
+        try:
+            if hasattr(heroi, "inventario"):
+                # usa o inventário do jogo como fonte única
+                heroi.inventario = self.inven
+            else:
+                heroi.inventario = self.inven
+        except Exception:
+            pass
 
         cenario = (self.missao_config.get("cenario") or "Caverna")
         dificuldade = (self.missao_config.get("dificuldade") or "Fácil")
