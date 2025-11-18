@@ -335,6 +335,8 @@ class Jogo:
                 self._preview_missao()
             elif op == "4":
                 self._iniciar_missao()
+                print("Retornando ao menu inicial.....")
+                break
             elif op == "5":
                 self.escolher_missao()
             elif op == "9":

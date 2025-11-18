@@ -1,0 +1,12 @@
+{
+    "personagem": {
+        "nome": "asdasd",
+        "arquetipo": "Mago"
+    },
+    "missao_config": {
+        "dificuldade": null,
+        "cenario": null,
+        "missao": null
+    },
+    "inventario": []
+}
