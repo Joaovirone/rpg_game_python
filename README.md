@@ -297,13 +297,32 @@ Contribuições são bem-vindas! Para contribuir:
 
 ---
 
-## 👨‍💻 Autor
+## 🛠️ Desenvolvedores:
 
-Desenvolvido João Vitor Pereira, Pedro Henrique Santos Silva, Pedro Henrique Oliveira Costa, Henri José Sobral de Alcântara Mendonça, Rone Marques Santos de de Jesus, João Francisco Costa, Raian Luz dos Santos, Enzo Samuel Oliveira Gonçalves.
+- **João Vitor Pereira**
+  - `Inventário` `Sistema de Saves` `Missões`
+
+- **Pedro Henrique Santos Silva**
+  - `Otimização de Missões` `Sistema de XP`
+
+- **Pedro Henrique Oliveira Costa**
+  - `QA (Quality Assurance)` `Documentação`
+
+- **Henri José Sobral de Alcântara Mendonça**
+  - `Estrutura de Missões` `Personagens`
+
+- **Rone Marques Santos de de Jesus**
+  - `Gestão do Projeto` `README`
+
+- **João Francisco Costa**
+  - `Sistema de XP` `Logger Otimizado`
+
+- **Enzo Samuel Oliveira Gonçalves**
+  - `Bug Fixes` `Correção de Loops`
 
 ---
 
 ## 🙏 Agradecimentos
 
-- Ao professor Mariano, pelo empenho e ensinamentos em aula.
+- O obrigado de todo o grupo ao professor Mariano, pelos ensinamentos e pelo empenho e dedicação demonstrado por ele dentro e fora de sala.
 
