@@ -767,7 +767,7 @@ class Jogo:
 
         # Executa a missão
         try:
-            resultado = engine.executar(auto=True) # Ou auto=False, conforme sua preferência
+            resultado = engine.executar(auto=False) # Caso queira as missões rodando automaticamente = auto=True
         except TypeError:
             resultado = engine.executar()
 
