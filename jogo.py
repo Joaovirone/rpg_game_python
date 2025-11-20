@@ -1,6 +1,7 @@
 from __future__ import annotations
 import json
 import os
+import glob
 from utils.logger import Logger
 from models.inventario import Drop_rate, Inventario, Item
 from models.base import Entidade
@@ -582,6 +583,19 @@ class Jogo:
                 print("Opção inválida.")
 
     def _carregar_ultimo(self) -> None:
+            # --- CORREÇÃO: Preencher a variável se ela estiver vazia ---
+        if not self._ultimo_save:
+            import glob
+            # Procura arquivos na pasta 'saves'. 
+            # IMPORTANTE: Se seus saves forem .txt ou .pkl, mude o ".json" abaixo.
+            lista_arquivos = glob.glob("saves/*.json") 
+            
+            if lista_arquivos:
+                # Define self._ultimo_save como o arquivo mais recente encontrado
+                self._ultimo_save = max(lista_arquivos, key=os.path.getmtime)
+
+
+
         if not self._ultimo_save:
             self.logger.warning("Nenhum save recente encontrado.")
             return print("Nenhum save recente encontrado.")
@@ -589,6 +603,7 @@ class Jogo:
             self.logger.error(f"Arquivo não encontrado: {self._ultimo_save}")
             return print(f"Arquivo '{self._ultimo_save}' não foi encontrado.")
         self.carregar_arquivo(self._ultimo_save)
+
         self.logger.info(f"📂 Progresso carregado: {self._ultimo_save}")
         print(f"✔ Progresso carregado de: {self._ultimo_save}")
 
