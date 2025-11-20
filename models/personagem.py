@@ -186,39 +186,50 @@ class Personagem(Entidade):
 
     # -------- XP (nível máx. 10) --------
     def _xp_para_proximo(self) -> int:
+        # Fórmula atual: 100 * nivel (100, 200, 300...)
         return 100 * self.nivel
 
     def ganhar_xp(self, qtd: int) -> List[str]:
         logs: List[str] = []
         qtd = max(0, int(qtd))
+        
         if qtd == 0 or self.nivel >= 10:
             return logs
 
         self.xp += qtd
-        logger.info(f"📈 {self.nome} ganhou {qtd} XP (Total: {self.xp}/{self._xp_para_proximo()})")
         
-        while self.nivel < 10 and self.xp >= self._xp_para_proximo():
-            self.xp -= self._xp_para_proximo()
-            self.nivel += 1
+        # Log inicial apenas informativo
+        xp_necessario = self._xp_para_proximo()
+        logs.append(f"Ganhou {qtd} XP. (Atual: {self.xp}/{xp_necessario})")
 
-            # progressão simples
+        # Loop de Level Up (suporta subir múltiplos níveis de uma vez)
+        subiu_nivel = False
+        while self.nivel < 10 and self.xp >= self._xp_para_proximo():
+            custo_nivel = self._xp_para_proximo()
+            self.xp -= custo_nivel
+            self.nivel += 1
+            subiu_nivel = True
+
+            # Progressão de atributos
             self._atrib.vida_max = (self._atrib.vida_max or self._atrib.vida) + 5
-            self._atrib.vida = min(self._atrib.vida_max, self._atrib.vida + 5)
+            self._atrib.vida = self._atrib.vida_max # Recupera vida ao upar (opcional, mas gratificante)
             self._atrib.ataque += 1
             self._atrib.defesa += 1
             self._atrib.mana += 5
 
             if self.nivel in (2, 4, 6):
-                logs.append(f"Subiu para o nível {self.nivel}! Nova habilidade desbloqueada.")
-                logger.info(f"🎉 {self.nome} alcançou nível {self.nivel}! Nova habilidade desbloqueada!")
+                logs.append(f"🎉 SUBIU PARA O NÍVEL {self.nivel}! Nova habilidade desbloqueada.")
             else:
-                logs.append(f"Subiu para o nível {self.nivel}!")
-                logger.info(f"🎉 {self.nome} alcançou nível {self.nivel}!")
+                logs.append(f"🎉 SUBIU PARA O NÍVEL {self.nivel}!")
 
-        if self.nivel >= 10:
-            self.xp = 0
-            logs.append("Nível máximo atingido (10).")
-            logger.info(f"🏆 {self.nome} atingiu o nível máximo (10)!")
+        if subiu_nivel:
+            # Mostra como ficou a barra APÓS subir de nível
+            if self.nivel < 10:
+                logs.append(f"Status Pós-Nível: {self.xp}/{self._xp_para_proximo()} XP para o próximo.")
+            else:
+                self.xp = 0
+                logs.append("🏆 Nível Máximo (10) atingido!")
+
         return logs
 
 # =============================== GUERREIRO ================================

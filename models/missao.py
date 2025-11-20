@@ -196,6 +196,22 @@ class MissaoHordas:
                     print(f"{inimigo.nome} foi derrotado!")
                     logger.info(f"💀 {inimigo.nome} foi derrotado!")
                     encontros_vencidos += 1
+
+                    xp_base = getattr(inimigo, "xp_recompensa", 0) 
+                    if xp_base == 0:
+                        # Fallback: Se não tiver XP definido, calcula baseado no ataque/vida dele
+                        xp_base = (inimigo._atrib.ataque * 2) + (inimigo._atrib.vida_max // 2)
+
+                    # Bônus de dificuldade (Opcional)
+                    if self.dificuldade == "Dificil":
+                        xp_base = int(xp_base * 1.5)
+
+                    # O Heroi ganha o XP calculado do inimigo
+                    logs_xp = self.heroi.ganhar_xp(xp_base)
+
+                    for log in logs_xp:
+                        print(log) # Imprime no console para você ver na hora
+                        logger.info(f"📈 {log}")
                     
 
                     drop_system = Drop_rate(self.heroi)
@@ -228,6 +244,22 @@ class MissaoHordas:
                     print(f"{inimigo.nome} caiu pelos efeitos!")
                     logger.info(f"💀 {inimigo.nome} caiu pelos efeitos!")
                     encontros_vencidos += 1
+
+                    xp_base = getattr(inimigo, "xp_recompensa", 0) 
+                    if xp_base == 0:
+                        # Fallback: Se não tiver XP definido, calcula baseado no ataque/vida dele
+                        xp_base = (inimigo._atrib.ataque * 2) + (inimigo._atrib.vida_max // 2)
+
+                    # Bônus de dificuldade (Opcional)
+                    if self.dificuldade == "Dificil":
+                        xp_base = int(xp_base * 1.5)
+
+                    # O Heroi ganha o XP calculado do inimigo
+                    logs_xp = self.heroi.ganhar_xp(xp_base)
+
+                    for log in logs_xp:
+                        print(log) # Imprime no console para você ver na hora
+                        logger.info(f"📈 {log}")
 
                     drop_system = Drop_rate(self.heroi)
                     item = drop_system.tentar_drop()

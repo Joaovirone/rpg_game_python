@@ -35,6 +35,7 @@ class Jogo:
             "nome": None,         # str
             "arquetipo": None,    # "Guerreiro" | "Mago" | "Arqueiro" | "Curandeiro"
         }
+        self.heroi_ativo = None
 
         self.missao_config = {
             "dificuldade": None,  # "Fácil" | "Média" | "Difícil"
@@ -112,52 +113,46 @@ class Jogo:
     # PREVIEW do personagem (apenas exibe; instancia via fábrica e descarta)
     # ======================================================================
     def mostrar_personagem(self) -> None:
-        """Mostra um preview do personagem com stats, XP e habilidades (inclui bloqueadas com aviso)."""
-        if not self.personagem.get("nome") or not self.personagem.get("arquetipo"):
+        """Mostra o herói real se existir, senão mostra um preview."""
+        
+        # 1. Decide quem será mostrado
+        if self.heroi_ativo:
+            # Se já temos um herói jogando, mostra ele (com XP e itens)
+            alvo = self.heroi_ativo
+            titulo = "=== Status do Personagem Ativo ==="
+        elif self.personagem.get("nome") and self.personagem.get("arquetipo"):
+            # Se não, cria um temporário só para visualização
+            alvo = criar_personagem(self.personagem["arquetipo"], self.personagem["nome"])
+            titulo = "=== Preview (Nível 1) ==="
+        else:
             print("Defina nome e arquétipo para visualizar o personagem.")
             return
 
-        # Instância temporária via fábrica (sem criar nada "na mão" aqui)
-        heroi_tmp: Personagem = criar_personagem(
-            self.personagem["arquetipo"],
-            self.personagem["nome"]
-        )
-        stats = preview_personagem(heroi_tmp)
+        # 2. Gera os stats visuais
+        stats = preview_personagem(alvo)
 
-        # ---- Cabeçalho / Stats ----
-        print("\n=== Preview do Personagem ===")
-        print(f"Nome: {heroi_tmp.nome} | Classe: {heroi_tmp.__class__.__name__} | Nível: {heroi_tmp.nivel}")
+        # 3. Exibe
+        print(f"\n{titulo}")
+        print(f"Nome: {alvo.nome} | Classe: {alvo.__class__.__name__} | Nível: {alvo.nivel}")
         print(f"🩸 Vida: {stats['vida']}/{stats['vida_max']}  |  🛡️ Defesa: {stats['defesa']}")
         print(f"⚔️ Ataque: {stats['ataque']}  |  🔮 Mana: {stats['mana']}  |  ✨ Magia: {stats['ataque_magico']}")
 
-        # ---- XP / Progressão ----
-        if heroi_tmp.nivel >= 10:
+        # 4. Mostra XP Corretamente
+        if alvo.nivel >= 10:
             print("📈 XP: Nível máximo (10) atingido.")
         else:
-            xp_atual = getattr(heroi_tmp, "xp", 0)
-            xp_prox = 100 * heroi_tmp.nivel
+            xp_atual = getattr(alvo, "xp", 0)
+            xp_prox = alvo._xp_para_proximo() # Usa o método do objeto
             faltam = max(0, xp_prox - xp_atual)
-            print(f"📈 XP: {xp_atual}/{xp_prox}  (faltam {faltam} para o nível {heroi_tmp.nivel + 1})")
+            
+            # Barra de progresso visual
+            pct = int((xp_atual / xp_prox) * 10)
+            barra = "▓" * pct + "░" * (10 - pct)
+            print(f"📈 XP: [{barra}] {xp_atual}/{xp_prox} (Faltam {faltam})")
 
-        # ---- Ataque básico ----
-        custo_bas = custo_ataque_basico(heroi_tmp)
-        print(f"\nAtaque básico: custo {custo_bas} mana (sempre disponível)")
-
-        # ---- Habilidades (todas) com bloqueio por nível + descrição ----
-        print("\nHabilidades da classe:")
-        todas = especiais_do_personagem(heroi_tmp, considerar_nivel=False)
-        cls_nome = heroi_tmp.__class__.__name__
-
-        for i, (_esp_id, nome, custo) in enumerate(todas, start=1):
-            req = self._nivel_requerido_por_indice(i)
-            disponivel = heroi_tmp.nivel >= req
-            desc = self._descricao_habilidade(cls_nome, nome)
-            status = "Disponível" if disponivel else f"Bloqueada: requer nível {req}"
-            print(f" - [{i}] {nome} — custo {custo}  ({status})")
-            if desc:
-                print(f"     • {desc}")
-
-        print("================================")
+        # Mostra inventário se for o herói ativo
+        if self.heroi_ativo and hasattr(alvo, 'inventario'):
+             print(f"🎒 Itens: {len(alvo.inventario.itens)} no inventário.")
 
     # ======================================================================
     # HUD do turno (LOCAL; usa helpers do módulo de personagem)
@@ -298,20 +293,18 @@ class Jogo:
         if not self.personagem["arquetipo"]:
             print("Escolha um arquétipo antes de confirmar a criação.")
             return
+        
+        # --- ADICIONAR ISSO ---
+        # Se o jogador confirmar uma nova criação, resetamos o herói ativo
+        # para garantir que a próxima missão use as novas configurações.
+        self.heroi_ativo = None 
+        # ----------------------
 
         print("\nPersonagem configurado!")
         print(f"Nome: {self.personagem['nome']} | Arquétipo: {self.personagem['arquetipo']}")
         self.logger.info(f"🎉 Personagem criado: {self.personagem['nome']} ({self.personagem['arquetipo']})")
 
-        # Mostra o preview imediatamente (sem manter instância)
         self.mostrar_personagem()
-
-    def _ajuda_criar_personagem(self) -> None:
-        self.logger.info("Iniciando menu Ajuda da criação do personagem...")
-        print("\nAjuda — Criar Personagem")
-        print("- Defina um nome e um arquétipo.")
-        print("- O jogo NÃO cria a instância aqui; isso só acontece ao iniciar a missão.")
-        print("- As classes têm atributos/habilidades diferentes.")
 
     # ================================ MISSÃO ===============================
 
@@ -522,8 +515,28 @@ class Jogo:
         dados = {
             "personagem": self.personagem,
             "missao_config": self.missao_config,
+            "heroi_stats": None # Preparamos o campo
         }
-        # serializar inventário (lista de dicts)
+
+        # --- NOVO: SALVAR STATUS DO HERÓI (XP, NÍVEL, ATRIBUTOS) ---
+        if self.heroi_ativo:
+            # Serializa os dados vitais do herói
+            dados["heroi_stats"] = {
+                "nivel": self.heroi_ativo.nivel,
+                "xp": self.heroi_ativo.xp,
+                # Salvamos os atributos atuais para manter buffs ou evoluções
+                "atributos": {
+                    "vida": self.heroi_ativo._atrib.vida,
+                    "vida_max": self.heroi_ativo._atrib.vida_max,
+                    "mana": getattr(self.heroi_ativo._atrib, "mana", 0),
+                    "ataque": self.heroi_ativo._atrib.ataque,
+                    "defesa": self.heroi_ativo._atrib.defesa,
+                    "ataque_magico": getattr(self.heroi_ativo._atrib, "ataque_magico", 0),
+                }
+            }
+        # -----------------------------------------------------------
+
+        # serializar inventário (lista de dicts) - SEU CÓDIGO ORIGINAL MANTIDO AQUI
         try:
             itens_serializados = []
             for it in (self.inven.itens or []):
@@ -540,11 +553,11 @@ class Jogo:
                 elif isinstance(it, dict):
                     itens_serializados.append(it)
                 else:
-                    # fallback: stringify
                     itens_serializados.append({"nome": str(it)})
             dados["inventario"] = itens_serializados
         except Exception:
             pass
+
         try:
             with open(nome_arquivo, "w", encoding="utf-8") as f:
                 json.dump(dados, f, indent=4, ensure_ascii=False)
@@ -630,9 +643,50 @@ class Jogo:
         try:
             with open(nome_arquivo, "r", encoding="utf-8") as f:
                 dados = json.load(f)
+            
+            # 1. Carrega as configurações básicas (Nome/Arquétipo)
             self.personagem = dados.get("personagem", self.personagem)
             self.missao_config = dados.get("missao_config", self.missao_config)
-            # carregar inventário serializado
+
+            # ------------------------------------------------------------------
+            # 2. PARTE NOVA: RECONSTRUIR O HERÓI ATIVO (Nível, XP, Vida)
+            # ------------------------------------------------------------------
+            stats_salvos = dados.get("heroi_stats")
+            
+            # Só tenta restaurar se tivermos nome, arquétipo e os dados salvos
+            if self.personagem.get("nome") and self.personagem.get("arquetipo") and stats_salvos:
+                
+                # A. Cria a instância base (Nível 1, XP 0)
+                self.heroi_ativo = criar_personagem(
+                    self.personagem["arquetipo"], 
+                    self.personagem["nome"]
+                )
+                
+                # B. Sobrescreve com os dados do JSON
+                self.heroi_ativo.nivel = stats_salvos["nivel"]
+                self.heroi_ativo.xp = stats_salvos["xp"]
+                
+                # C. Restaura os atributos (para manter vida atual, etc)
+                atribs = stats_salvos.get("atributos", {})
+                self.heroi_ativo._atrib.vida = atribs.get("vida", 10)
+                self.heroi_ativo._atrib.vida_max = atribs.get("vida_max", 10)
+                self.heroi_ativo._atrib.ataque = atribs.get("ataque", 1)
+                self.heroi_ativo._atrib.defesa = atribs.get("defesa", 0)
+                
+                # (Opcional) Mana e Magia se a classe tiver
+                if hasattr(self.heroi_ativo._atrib, "mana"):
+                    self.heroi_ativo._atrib.mana = atribs.get("mana", 0)
+                if hasattr(self.heroi_ativo._atrib, "ataque_magico"):
+                    self.heroi_ativo._atrib.ataque_magico = atribs.get("ataque_magico", 0)
+
+                self.logger.info(f"🆙 Herói restaurado: Nível {self.heroi_ativo.nivel}, XP {self.heroi_ativo.xp}")
+            
+            else:
+                # Se não tem stats salvos, garante que não fica lixo na memória
+                self.heroi_ativo = None
+            # ------------------------------------------------------------------
+
+            # 3. Carregar inventário (Seu código original)
             itens = dados.get("inventario")
             if itens is not None:
                 try:
@@ -640,13 +694,23 @@ class Jogo:
                     restored = []
                     for it in itens:
                         if isinstance(it, dict):
-                            restored.append(Item(**it))
+                            try:
+                                restored.append(Item(**it))
+                            except:
+                                restored.append(it)
                         else:
                             restored.append(it)
                     self.inven.itens = restored
+                    
+                    # IMPORTANTE: Conecta o inventário carregado ao herói recriado
+                    if self.heroi_ativo:
+                        self.heroi_ativo.inventario = self.inven
+                        
                 except Exception:
                     self.logger.error("Erro ao restaurar inventário do save.")
+            
             self.logger.info("✅ Dados do jogo carregados com sucesso")
+
         except Exception as error:
             self.logger.error(f"❌ Erro ao carregar arquivo: {error}")
             print(f"Erro ao carregar arquivo: {error}")
@@ -663,31 +727,38 @@ class Jogo:
             print("Crie/configure um personagem antes de iniciar uma missão.")
             return
 
+        # --- CORREÇÃO PRINCIPAL AQUI ---
+        # Se o herói ativo não existe (primeira missão) OU se ele morreu na anterior:
+        if self.heroi_ativo is None:
+            # Cria a instância e SALVA em self.heroi_ativo
+            self.heroi_ativo = criar_personagem(self.personagem["arquetipo"], self.personagem["nome"])
+            self.logger.info(f"🎮 Novo Herói instanciado: {self.heroi_ativo.nome}")
+            
+            # Sincroniza inventário
+            try:
+                self.heroi_ativo.inventario = self.inven
+            except Exception:
+                pass
+        else:
+            self.logger.info(f"🎮 Usando herói existente: {self.heroi_ativo.nome} (Nível {self.heroi_ativo.nivel})")
+
+        # Define quem vai para a missão (usa a variável da classe, não uma local)
+        heroi_para_missao = self.heroi_ativo
+        # -------------------------------
+
         # Inimigo padrão, caso nenhum tenha sido passado
         if inimigo is None:
             try:
-                inimigo = Inimigo.goblin()  # se seu Inimigo tiver fábrica
+                inimigo = Inimigo.goblin() 
             except Exception:
                 inimigo = Inimigo("Goblin", vida=10, ataque=2, defesa=0)
-
-        # Instância do herói obtida via fábrica central (fora do jogo.py)
-        heroi = criar_personagem(self.personagem["arquetipo"], self.personagem["nome"])
-        self.logger.info(f"🎮 Herói instanciado: {heroi.nome} ({heroi.__class__.__name__})")
-        # sincroniza inventário global do jogo com o herói (persistência entre missões)
-        try:
-            if hasattr(heroi, "inventario"):
-                # usa o inventário do jogo como fonte única
-                heroi.inventario = self.inven
-            else:
-                heroi.inventario = self.inven
-        except Exception:
-            pass
 
         cenario = (self.missao_config.get("cenario") or "Caverna")
         dificuldade = (self.missao_config.get("dificuldade") or "Fácil")
 
         try:
-            engine = Missao(inimigo=inimigo, heroi=heroi, cenario=cenario, dificuldade=dificuldade, missao= self.missao_config.get("missao"))
+            # Passa o self.heroi_ativo para a engine
+            engine = Missao(inimigo=inimigo, heroi=heroi_para_missao, cenario=cenario, dificuldade=dificuldade, missao=self.missao_config.get("missao"))
             self.logger.info("🎯 Engine de missão criada com sucesso")
         except Exception as e:
             self.logger.error(f"❌ Erro ao criar engine de Missão: {e}")
@@ -696,19 +767,25 @@ class Jogo:
 
         # Executa a missão
         try:
-            resultado = engine.executar(auto=True)
+            resultado = engine.executar(auto=True) # Ou auto=False, conforme sua preferência
         except TypeError:
             resultado = engine.executar()
 
         if isinstance(resultado, ResultadoMissao):
             if resultado.venceu:
-                self.logger.info(f"🏆 Missão concluída com sucesso! Encontros vencidos: {resultado.encontros_vencidos}")
+                self.logger.info(f"🏆 Missão concluída com sucesso! XP Atual: {heroi_para_missao.xp}")
                 print(f"Missão concluída! Encontros vencidos: {resultado.encontros_vencidos}")
             else:
-                self.logger.warning(f"💀 Missão falhou. Encontros vencidos: {resultado.encontros_vencidos} — {resultado.detalhes}")
-                print(f"Missão falhou. Encontros vencidos: {resultado.encontros_vencidos} — {resultado.detalhes}")
+                self.logger.warning(f"💀 Missão falhou.")
+                print(f"Missão falhou. Encontros vencidos: {resultado.encontros_vencidos}")
+                
+                # Se morreu, reseta o herói ativo para NULL, obrigando a criar um novo na próxima
+                # OU você pode manter ele vivo mas com 1 de HP. A escolha é sua. 
+                # Abaixo, o padrão Roguelike (morreu, perdeu):
+                if not heroi_para_missao.esta_vivo():
+                    print("✝️ SEU HERÓI MORREU! Um novo herói deverá ser criado.")
+                    self.heroi_ativo = None 
         else:
-            self.logger.info(f"📊 Resultado da missão: {resultado}")
             print("Resultado da missão:", resultado)
     #---------------------MENU INVENTÁRIO ------------------------------
     def menu_inventario(self) -> None:
