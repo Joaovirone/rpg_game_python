@@ -12,3 +12,5 @@
 *.json
 *.idea
 */.idea
+*saves
+*/saves
