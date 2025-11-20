@@ -165,6 +165,15 @@ python main.py
 
 ## 🎮 Como Jogar
 
+### ⚙️ Configuração de Execução das Missões
+
+O método `engine.executar(auto: bool)` no arquivo `jogo.py`controla o fluxo das batalhas:
+
+- **`auto=True`**: Ativa o piloto automático. O algoritmo seleciona as habilidades baseadas na classe e no estado atual do personagem (ex: Curandeiros priorizam cura quando HP < 35%).
+- **`auto=False`** (Padrão): Ativa a interface interativa (CLI), solicitando input do usuário para cada turno.
+
+Para alterar o modo padrão, edite a chamada na classe `Jogo` (método `_iniciar_missao`).
+
 ### Menu Principal
 
 ```
